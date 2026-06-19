@@ -6,28 +6,29 @@ Dưới đây là sơ đồ bố trí giao diện người dùng (UI layout) và
 
 ## Các phân khu chức năng chính
 
-### 1. Panel bên trái: Node Palette (Danh sách Node)
-Cho phép người dùng kéo thả các node vào Canvas:
-- **Kích hoạt (Trigger)**: Node bắt đầu chạy.
-- **Đầu vào (Input)**: Prompt chủ đề, tài liệu text.
-- **Xử lý AI (AI Script)**: Node phân tích kịch bản.
-- **Hình ảnh (Visual)**: Chọn hoặc tạo ảnh minh họa.
-- **Render (Xuất bản)**: Cấu hình xuất video MP4.
+### 1. Panel bên trái: Node Palette & Danh sách Mẫu (Templates)
+- **Danh sách mẫu (Templates)**: Giúp tạo nhanh luồng kịch bản dựng sẵn:
+  - **Prompt sang Video**: Tạo nhanh từ prompt.
+  - **Tài liệu sang Video**: Cung cấp trường tải lên tài liệu và phân tích.
+  - **Blog sang Social Video**: Nhập URL bài viết và tự động thiết lập khung hình dọc.
+- **Node Palette**: Thêm các Node mới:
+  - **Tài Liệu**: Tải lên tệp đầu vào.
+  - **Liên Kết Blog**: Nhập đường dẫn web.
+  - **Lồng Tiếng AI**: Cấu hình âm thanh.
+  - **Phụ Đề**: Thêm chữ chạy kèm.
 
 ### 2. Khu vực trung tâm: Canvas Workflow (React Flow)
-Không gian làm việc chính để kéo thả các Node và kết nối chúng bằng đường truyền (Edge). Mỗi Node có các trạng thái trực quan:
-- **Đang chờ (Idle)**: Màu xám/viền nhạt.
-- **Đang chạy (Running)**: Viền xanh lá xoay nhẹ.
-- **Hoàn thành (Success)**: Nền xanh lá nhạt, có dấu tích xanh.
-- **Lỗi (Error)**: Nền đỏ nhạt, có dấu cảnh báo.
+Không gian làm việc chính để kéo thả các Node và kết nối chúng bằng đường truyền (Edge). Hỗ trợ các kiểu kết nối linh hoạt từ nhiều luồng đầu vào khác nhau.
 
 ### 3. Panel bên phải: Inspector Panel (Cấu hình chi tiết)
-Khi nhấp chọn một Node, Panel bên phải hiển thị cấu hình tương ứng hoàn toàn bằng **Tiếng Việt**:
-- Ví dụ với AI Script Node: Lựa chọn độ dài kịch bản, giọng điệu (vui vẻ, nghiêm túc, truyền cảm), prompt bổ sung.
-- Nút "Chạy thử Node này" để debug riêng lẻ.
+Hiển thị cấu hình cho các node mới:
+- **Tài liệu (Doc Node)**: Chọn tệp tải lên (mock PDF/TXT).
+- **Liên kết Blog (Url Node)**: Ô nhập địa chỉ URL của trang blog.
+- **Lồng Tiếng AI (Audio TTS)**: Lựa chọn giọng đọc Nam/Nữ, vùng miền (Bắc/Trung/Nam) và tốc độ phát âm thanh.
+- **Phụ Đề (Subtitle Node)**: Chọn font chữ nghệ thuật (TikTok, Vintage, Modern), cỡ chữ và màu sắc nổi bật.
 
-### 4. Bảng điều khiển phía dưới: Timeline Preview & Trình theo dõi
-Hiển thị timeline video sau khi chạy thành công:
-- **Timeline**: Các Scene được xếp theo thứ tự thời gian kèm text phụ đề.
-- **Trình phát Video (Preview Player)**: Xem trước hình ảnh/video mockup.
-- **Bảng điều khiển console**: Hiển thị nhật ký log chạy chi tiết theo thời gian thực (real-time).
+### 4. Bảng điều khiển phía dưới: Timeline, Console & Agent Orchestration
+Bổ sung tab theo dõi **Hội thoại Agents (Agent Orchestration)**:
+- Hiển thị cửa sổ trò chuyện thời gian thực giữa **Biên Kịch Agent** và **Đạo Diễn Agent**.
+- Mô phỏng quá trình các Agent phân tích kịch bản đầu vào, đóng góp ý tưởng chỉnh sửa hình ảnh, và cùng thống nhất bản cuối trước khi đưa vào render.
+

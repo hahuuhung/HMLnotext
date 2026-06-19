@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { Play, Settings, Cpu, Image, Film } from 'lucide-react';
+import { Play, Settings, Cpu, Image, Film, FileText, Globe, Volume2, Type } from 'lucide-react';
 
 interface CustomNodeProps {
   data: {
@@ -143,6 +143,118 @@ export function RenderNode({ data, selected }: CustomNodeProps) {
           {status === 'success' ? 'Sẵn sàng tải về' : status === 'running' ? 'Đang dựng hình...' : 'Đợi assets...'}
         </p>
       </div>
+    </div>
+  );
+}
+
+// 6. Tài liệu (Doc Input Node)
+export function DocInputNode({ data, selected }: CustomNodeProps) {
+  const status = data.status || 'idle';
+  return (
+    <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
+      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
+      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
+      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+
+      <Handle type="target" position={Position.Left} id="input" />
+      <div className="node-header">
+        <div className="node-icon-wrapper" style={{ backgroundColor: '#10b981' }}>
+          <FileText size={16} />
+        </div>
+        <div className="node-title">Tài Liệu</div>
+        <span className="node-badge" style={{ backgroundColor: '#d1fae5', color: '#065f46' }}>Doc</span>
+      </div>
+      <div className="node-body">
+        <p style={{ fontWeight: 500 }}>Tệp văn bản:</p>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {data.value || 'Chưa tải lên'}
+        </p>
+      </div>
+      <Handle type="source" position={Position.Right} id="output" />
+    </div>
+  );
+}
+
+// 7. Liên kết Web (Url Input Node)
+export function UrlInputNode({ data, selected }: CustomNodeProps) {
+  const status = data.status || 'idle';
+  return (
+    <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
+      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
+      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
+      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+
+      <Handle type="target" position={Position.Left} id="input" />
+      <div className="node-header">
+        <div className="node-icon-wrapper" style={{ backgroundColor: '#3b82f6' }}>
+          <Globe size={16} />
+        </div>
+        <div className="node-title">Liên Kết Blog</div>
+        <span className="node-badge" style={{ backgroundColor: '#dbeafe', color: '#1e40af' }}>URL</span>
+      </div>
+      <div className="node-body">
+        <p style={{ fontWeight: 500 }}>Địa chỉ Blog:</p>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {data.value || 'Chưa thiết lập'}
+        </p>
+      </div>
+      <Handle type="source" position={Position.Right} id="output" />
+    </div>
+  );
+}
+
+// 8. Lồng tiếng AI (Audio TTS Node)
+export function AudioTTSNode({ data, selected }: CustomNodeProps) {
+  const status = data.status || 'idle';
+  return (
+    <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
+      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
+      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
+      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+
+      <Handle type="target" position={Position.Left} id="input" />
+      <div className="node-header">
+        <div className="node-icon-wrapper" style={{ backgroundColor: '#8b5cf6' }}>
+          <Volume2 size={16} />
+        </div>
+        <div className="node-title">Lồng Tiếng AI</div>
+        <span className="node-badge" style={{ backgroundColor: '#ede9fe', color: '#5b21b6' }}>Audio</span>
+      </div>
+      <div className="node-body">
+        <p style={{ fontWeight: 500 }}>Giọng đọc:</p>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          {status === 'success' ? 'Đã sinh Audio TTS' : 'Chờ văn bản...'}
+        </p>
+      </div>
+      <Handle type="source" position={Position.Right} id="output" />
+    </div>
+  );
+}
+
+// 9. Phụ đề (Subtitle Node)
+export function SubtitleNode({ data, selected }: CustomNodeProps) {
+  const status = data.status || 'idle';
+  return (
+    <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
+      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
+      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
+      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+
+      <Handle type="target" position={Position.Left} id="input" />
+      <div className="node-header">
+        <div className="node-icon-wrapper" style={{ backgroundColor: '#f43f5e' }}>
+          <Type size={16} />
+        </div>
+        <div className="node-title">Phụ Đề</div>
+        <span className="node-badge" style={{ backgroundColor: '#ffe4e6', color: '#9f1239' }}>Subtitle</span>
+      </div>
+      <div className="node-body">
+        <p style={{ fontWeight: 500 }}>Kiểu hiển thị:</p>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          {status === 'success' ? 'Phụ đề nghệ thuật' : 'Chờ kịch bản...'}
+        </p>
+      </div>
+      <Handle type="source" position={Position.Right} id="output" />
     </div>
   );
 }
