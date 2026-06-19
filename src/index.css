@@ -1287,4 +1287,148 @@ body {
   transition: width 0.3s ease;
 }
 
+/* n8n Style Floating Canvas Toolbar */
+.canvas-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-dark);
+  align-items: center;
+}
+
+.canvas-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-dark);
+  background: white;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-primary);
+}
+
+.canvas-toolbar-btn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.canvas-toolbar-btn.btn-save {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.canvas-toolbar-btn.btn-save:hover {
+  background: var(--primary-hover);
+}
+
+.canvas-toolbar-btn.btn-delete {
+  background: var(--error-light);
+  color: var(--error);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.canvas-toolbar-btn.btn-delete:hover {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+}
+
+/* Quick Add Dropdown Menu */
+.quick-add-menu {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  width: 220px;
+  background: white;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-dark);
+  box-shadow: var(--shadow-lg);
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.quick-add-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+  border: none;
+  background: none;
+  width: 100%;
+}
+
+.quick-add-item:hover {
+  background: var(--bg-app);
+  color: var(--primary);
+}
+
+.quick-add-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+/* Toast Message */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 54%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  pointer-events: none;
+  animation: toastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast {
+  background: #10b981;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@keyframes toastFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+
 

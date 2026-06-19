@@ -30,7 +30,10 @@ import {
   Unlock,
   Eye,
   EyeOff,
-  VolumeX
+  VolumeX,
+  Plus,
+  Save,
+  Check
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -325,6 +328,36 @@ function WorkflowBuilder() {
     const time = new Date().toTimeString().split(' ')[0];
     setHistoryList(prev => [...prev, `${time} - ${actionText}`]);
   }, []);
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 2500);
+  };
+
+  const saveWorkflowManual = () => {
+    localStorage.setItem('hml_projects', JSON.stringify(projects));
+    showToast('Đã lưu cấu hình dự án & workflow thành công!');
+    addLog('Đã lưu cấu hình dự án thủ công', 'success');
+    addHistory('Lưu cấu hình dự án thủ công');
+  };
+
+  const activeEdges = edges.map(edge => {
+    if (edge.id === selectedEdgeId) {
+      return {
+        ...edge,
+        style: { stroke: '#f43f5e', strokeWidth: 3 },
+        animated: true
+      };
+    }
+    return edge;
+  });
+
 
 
   const createNewProject = () => {
@@ -692,7 +725,56 @@ function WorkflowBuilder() {
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+    setSelectedEdgeId(null);
   }, []);
+
+  const addNodeDirectly = (type: string) => {
+    const typeLabels: Record<string, string> = {
+      trigger: 'Kích Hoạt',
+      inputNode: 'Đầu Vào Prompt',
+      docInput: 'Tài Liệu',
+      urlInput: 'Liên Kết Blog',
+      aiNode: 'AI Script',
+      visualNode: 'Visual Node',
+      audioTTS: 'Lồng Tiếng AI',
+      subtitle: 'Phụ Đề',
+      renderNode: 'Xuất Bản',
+    };
+
+    const id = (nodes.length + 1).toString();
+    const position = {
+      x: 350 + Math.random() * 80,
+      y: 120 + Math.random() * 80,
+    };
+
+    const newNode: Node = {
+      id,
+      type,
+      position,
+      data: { 
+        label: typeLabels[type] || 'Node Mới',
+        status: 'idle',
+        value: type === 'inputNode' ? promptValue : type === 'docInput' ? docValue : type === 'urlInput' ? urlValue : undefined
+      },
+    };
+
+    setNodes((nds) => nds.concat(newNode));
+    addLog(`Đã thêm Node ${typeLabels[type]} trực tiếp vào Canvas`, 'success');
+    addHistory(`Thêm Node ${typeLabels[type]} vào Canvas`);
+  };
+
+  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
+    setSelectedEdgeId(edge.id);
+  }, []);
+
+  const deleteSelectedEdge = useCallback(() => {
+    if (!selectedEdgeId) return;
+    setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId));
+    addLog(`Đã xóa liên kết ${selectedEdgeId}`, 'warning');
+    addHistory(`Xóa liên kết ${selectedEdgeId}`);
+    setSelectedEdgeId(null);
+  }, [selectedEdgeId, setEdges, addLog, addHistory]);
+
 
   // Drag and Drop nodes
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -1184,7 +1266,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             className={`mode-toggle-btn ${editorMode === 'kdenlive' ? 'active' : ''}`} 
             onClick={() => setEditorMode('kdenlive')}
           >
-            Dựng Phim (Kdenlive)
+            Dựng Phim (Shotcut)
           </button>
         </div>
 
@@ -1280,14 +1362,80 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             onDragOver={onDragOver}
             onDrop={onDrop}
           >
+            {/* Canvas floating toolbar */}
+            <div className="canvas-toolbar">
+              <div style={{ position: 'relative' }}>
+                <button 
+                  className="canvas-toolbar-btn" 
+                  onClick={() => setIsAddDropdownOpen(!isAddDropdownOpen)}
+                >
+                  <Plus size={14} />
+                  + Thêm Node Nhanh
+                </button>
+                {isAddDropdownOpen && (
+                  <div className="quick-add-menu">
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('trigger'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#10b981' }}><Play size={10} /></div>
+                      Kích Hoạt
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('inputNode'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#3b82f6' }}><Zap size={10} /></div>
+                      Đầu Vào Prompt
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('docInput'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#ec4899' }}><FileText size={10} /></div>
+                      Tài Liệu
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('urlInput'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#14b8a6' }}><Globe size={10} /></div>
+                      Liên Kết Blog
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('aiNode'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#a855f7' }}><Cpu size={10} /></div>
+                      AI Script
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('visualNode'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#f59e0b' }}><ImageIcon size={10} /></div>
+                      Visual Node
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('audioTTS'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#8b5cf6' }}><Volume2 size={10} /></div>
+                      Lồng Tiếng AI
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('subtitle'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#f43f5e' }}><Type size={10} /></div>
+                      Phụ Đề
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('renderNode'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#d946ef' }}><Film size={10} /></div>
+                      Xuất Bản
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button className="canvas-toolbar-btn btn-save" onClick={saveWorkflowManual}>
+                <Save size={14} />
+                Lưu Workflow
+              </button>
+
+              {selectedEdgeId && (
+                <button className="canvas-toolbar-btn btn-delete" onClick={deleteSelectedEdge}>
+                  <Trash2 size={14} />
+                  Xóa liên kết
+                </button>
+              )}
+            </div>
+
             <ReactFlow
               nodes={nodes}
-              edges={edges}
+              edges={activeEdges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               nodeTypes={nodeTypes}
               onNodeClick={onNodeClick}
+              onEdgeClick={onEdgeClick}
               onPaneClick={onPaneClick}
               fitView
             >
@@ -1319,6 +1467,37 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             ) : (
               <div className="inspector-content">
                 <h3 className="inspector-title">{String(selectedNode.data.label)}</h3>
+
+                <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '12px' }}>
+                  <label className="form-label">Tên Node:</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={String(selectedNode.data.label)} 
+                    onChange={(e) => {
+                      const newLabel = e.target.value;
+                      setNodes(nds => nds.map(n => {
+                        if (n.id === selectedNode.id) {
+                          return {
+                            ...n,
+                            data: {
+                              ...n.data,
+                              label: newLabel
+                            }
+                          };
+                        }
+                        return n;
+                      }));
+                      setSelectedNode(prev => prev ? {
+                        ...prev,
+                        data: {
+                          ...prev.data,
+                          label: newLabel
+                        }
+                      } : null);
+                    }}
+                  />
+                </div>
 
                 {/* Input Prompt Node */}
                 {selectedNode.type === 'inputNode' && (
@@ -2037,6 +2216,14 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             )}
           </div>
 
+        </div>
+      )}
+      {toastMessage && (
+        <div className="toast-container">
+          <div className="toast">
+            <Check size={16} />
+            <span>{toastMessage}</span>
+          </div>
         </div>
       )}
     </div>
