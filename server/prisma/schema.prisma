@@ -25,8 +25,32 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members  WorkspaceMember[]
-  projects Project[]
+  members      WorkspaceMember[]
+  projects     Project[]
+  providerKeys ProviderKey[]
+  auditLogs    AuditLog[]
+}
+
+model ProviderKey {
+  id          String    @id @default(uuid())
+  provider    String    // 'openai', 'anthropic', etc.
+  encryptedKey String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, provider])
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  action      String
+  details     String?
+  userId      String?
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
 }
 
 model WorkspaceMember {
