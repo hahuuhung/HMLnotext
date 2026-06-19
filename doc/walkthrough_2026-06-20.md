@@ -21,3 +21,8 @@
 - Cập nhật Prisma Schema: Thêm bảng `ProviderKey` (mã hóa Key) và `AuditLog` (lưu trữ lịch sử thực thi).
 - Tích hợp Rate Limit (`@nestjs/throttler`) nhằm giới hạn 100 requests / phút.
 - Khởi tạo tiến trình Cron dọn dẹp file tạm chạy vào lúc nửa đêm (`@nestjs/schedule`).
+
+## Giai đoạn 7: Triển khai (Deployment)
+- **Component 1 (Docker)**: Thiết lập Multi-stage builds cho Frontend và Backend. Cấu hình Nginx reverse proxy `nginx.conf`, file `.dockerignore`, mẫu `.env.example`, và gom nhóm qua `docker-compose.yml` (kết nối Redis, Backend, Frontend).
+- **Component 2 (CI/CD)**: Viết Action `ci.yml` kiểm tra linter, prisma schema validate, build test trên mọi Pull Request. Action `cd.yml` thực thi build và push Docker images (`frontend`, `backend`) lên GHCR với tag tự động.
+- **Component 3 (Monitoring)**: Viết Global Filters, Interceptors để bắt lỗi gửi lên Sentry và lưu log HTTP requests bằng Winston. Thiết lập `/api/health` endpoint để Docker compose kiểm tra trạng thái sức khỏe của các Container.

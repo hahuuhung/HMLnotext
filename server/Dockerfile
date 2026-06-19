@@ -32,9 +32,12 @@ COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/clie
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
-# Optional: Run Prisma db push or migrations
-# ENV DATABASE_URL=...
-# RUN npx prisma db push
+# Use non-root user for security
+USER node
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
 
 EXPOSE 3000
 

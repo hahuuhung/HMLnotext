@@ -11,7 +11,10 @@ import { ProvidersModule } from './providers/providers.module';
 import { RenderQueueModule } from './render-queue/render-queue.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -27,7 +30,8 @@ import { APP_GUARD } from '@nestjs/core';
     ProjectsModule, 
     NodeRegistryModule, 
     ProvidersModule, 
-    RenderQueueModule
+    RenderQueueModule,
+    HealthModule
   ],
   controllers: [AppController],
   providers: [
@@ -35,6 +39,14 @@ import { APP_GUARD } from '@nestjs/core';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: SentryExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
     },
   ],
 })
