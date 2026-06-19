@@ -26,7 +26,14 @@ import {
   Volume2,
   Type,
   Users,
-  Zap
+  Zap,
+  Folder,
+  Sliders,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  VolumeX
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -81,12 +88,15 @@ function WorkflowBuilder() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'logs' | 'agents'>('timeline');
   const [logs, setLogs] = useState<LogEntry[]>([
-    { time: '14:08:07', type: 'info', message: 'Nâng cấp Workspace hỗ trợ kéo thả Timeline & Hiệu ứng FX.' },
-    { time: '14:08:08', type: 'info', message: 'Bộ lọc FX thời gian thực đã sẵn sàng hoạt động.' }
+    { time: '14:22:07', type: 'info', message: 'Kích hoạt Chế độ dựng phim Kdenlive.' },
+    { time: '14:22:08', type: 'info', message: 'Media Project Bin và Effect Stack đã sẵn sàng.' }
   ]);
   const [agentLogs, setAgentLogs] = useState<AgentMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [workflowCompleted, setWorkflowCompleted] = useState(false);
+  
+  // UI Mode: workflow (n8n layout) or kdenlive (professional NLE layout)
+  const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive'>('workflow');
 
   // Inspector States
   const [promptValue, setPromptValue] = useState('Hương vị Cà phê phin Việt Nam');
@@ -107,6 +117,11 @@ function WorkflowBuilder() {
 
   const [aspectRatio, setAspectRatio] = useState('9:16');
   const [transitionSpeed, setTransitionSpeed] = useState('normal');
+
+  // Track Control States (Kdenlive style lock / mute / hide)
+  const [trackLocks, setTrackLocks] = useState({ visual: false, fx: false, audio: false, subtitle: false });
+  const [trackMutes, setTrackMutes] = useState({ audio: false, subtitle: false });
+  const [trackVisibility, setTrackVisibility] = useState({ visual: true, fx: true, subtitle: true });
 
   // Preview Playback States
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
@@ -145,6 +160,10 @@ function WorkflowBuilder() {
   const [draggedSceneIndex, setDraggedSceneIndex] = useState<number | null>(null);
 
   const handleSceneDragStart = (idx: number) => {
+    if (trackLocks.visual) {
+      addLog('Luồng Hình ảnh đang bị Khóa. Vui lòng mở khóa để sắp xếp.', 'warning');
+      return;
+    }
     setDraggedSceneIndex(idx);
   };
 
@@ -155,6 +174,7 @@ function WorkflowBuilder() {
   const handleSceneDrop = (targetIdx: number) => {
     if (draggedSceneIndex === null) return;
     if (draggedSceneIndex === targetIdx) return;
+    if (trackLocks.visual) return;
     
     const reordered = [...scenes];
     const [draggedItem] = reordered.splice(draggedSceneIndex, 1);
@@ -167,6 +187,10 @@ function WorkflowBuilder() {
 
   // FX change handler
   const handleSceneFxChange = (idx: number, fxValue: string) => {
+    if (trackLocks.fx) {
+      addLog('Luồng Hiệu ứng FX đang bị Khóa!', 'warning');
+      return;
+    }
     setScenes((prev) =>
       prev.map((s, i) => (i === idx ? { ...s, fx: fxValue } : s))
     );
@@ -183,7 +207,19 @@ function WorkflowBuilder() {
 
   // Calculate total duration based on selected scenes
   const totalDuration = scenes.slice(0, sceneCount).reduce((acc, s) => acc + s.duration, 0);
-  const timelineScale = 50; // pixels per second
+  const [timelineScale, setTimelineScale] = useState(60); // pixels per second (zoom state)
+  const [isSnapEnabled, setIsSnapEnabled] = useState(true);
+
+  // Helper to format seconds into SMPTE Timecode (HH:MM:SS:FF) at 25 fps
+  const formatTimecode = (secs: number, fps: number = 25): string => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = Math.floor(secs % 60);
+    const f = Math.floor((secs % 1) * fps);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`;
+  };
+
 
   // Synchronized Playhead and Preview Screen
   useEffect(() => {
@@ -239,12 +275,31 @@ function WorkflowBuilder() {
     if (!workflowCompleted) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    const clickedTime = Math.max(0, Math.min(totalDuration, clickX / timelineScale));
+    let clickedTime = Math.max(0, Math.min(totalDuration, clickX / timelineScale));
+    
+    if (isSnapEnabled) {
+      let currentOffset = 0;
+      const snapThreshold = 0.25; // Snap range in seconds
+      const snapPoints = [0];
+      for (const s of scenes.slice(0, sceneCount)) {
+        currentOffset += s.duration;
+        snapPoints.push(currentOffset);
+      }
+      for (const pt of snapPoints) {
+        if (Math.abs(clickedTime - pt) < snapThreshold) {
+          clickedTime = pt;
+          break;
+        }
+      }
+    }
+    
     setCurrentTime(clickedTime);
   };
 
-  // Get active scene FX CSS Filter class
+
+  // Get active scene FX CSS Filter class (respects track visibility and lock)
   const getFxClass = () => {
+    if (!trackVisibility.fx) return '';
     const activeScene = scenes[activeSceneIndex];
     if (!activeScene || !activeScene.fx || activeScene.fx === 'none') return '';
     return `fx-${activeScene.fx}`;
@@ -505,12 +560,17 @@ function WorkflowBuilder() {
 
     setIsRunning(false);
     setWorkflowCompleted(true);
+    setCurrentTime(0);
     setActiveTab('timeline');
     addLog('Mẫu video đã được dựng xong hoàn hảo!', 'success');
   }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes]);
 
-  // Subtitle styling generator for preview screen
+  // Subtitle styling generator for preview screen (respects track visibility and mute)
   const getSubStyle = () => {
+    if (!trackVisibility.subtitle || trackMutes.subtitle) {
+      return { display: 'none' };
+    }
+
     switch (subStyle) {
       case 'tiktok':
         return {
@@ -598,7 +658,22 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
     return ticks;
   };
 
-  // Build Track Blocks dynamically (Supports drag-and-drop on visual track)
+  const adjustSceneDuration = (idx: number, delta: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setScenes(prev => {
+      const next = prev.map((s, i) => {
+        if (i === idx) {
+          const nextDur = Math.max(1, Math.min(15, s.duration + delta));
+          return { ...s, duration: nextDur };
+        }
+        return s;
+      });
+      return next;
+    });
+    addLog(`Đã điều chỉnh thời lượng Cảnh ${idx + 1} thành ${Math.max(1, Math.min(15, scenes[idx].duration + delta))}s.`, 'info');
+  };
+
+  // Build Track Blocks dynamically
   const buildTrackBlocks = (trackType: 'visual' | 'audio' | 'subtitle' | 'fx') => {
     let currentOffset = 0;
     return scenes.slice(0, sceneCount).map((scene, idx) => {
@@ -612,19 +687,24 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
       };
 
       if (trackType === 'visual') {
+        if (!trackVisibility.visual) return null;
         return (
           <div 
             key={scene.id} 
             className={`track-block track-block-visual ${isActive ? 'active' : ''}`}
             style={blockStyle}
-            draggable
+            draggable={!trackLocks.visual}
             onDragStart={() => handleSceneDragStart(idx)}
             onDragOver={handleSceneDragOver}
             onDrop={() => handleSceneDrop(idx)}
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <img src={scene.image} alt={scene.title} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.title}</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>{scene.title}</span>
+            <div className="trim-controls">
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, -1, e)} title="Giảm 1s">-</button>
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, 1, e)} title="Tăng 1s">+</button>
+            </div>
           </div>
         );
       } else if (trackType === 'audio') {
@@ -632,15 +712,22 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           <div 
             key={scene.id} 
             className={`track-block track-block-audio ${isActive ? 'active' : ''}`}
-            style={blockStyle}
+            style={{ ...blockStyle, opacity: trackMutes.audio ? 0.35 : 1 }}
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <Volume2 size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Lồng tiếng - {ttsVoice === 'nu-mien-bac' ? 'Giọng Nữ Bắc' : 'Giọng Nam Nam'}</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>
+              {trackMutes.audio ? '[Tắt tiếng]' : `TTS - ${ttsVoice === 'nu-mien-bac' ? 'Nữ Bắc' : 'Nam Nam'}`}
+            </span>
             <div className="waveform-visual" />
+            <div className="trim-controls">
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, -1, e)} title="Giảm 1s">-</button>
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, 1, e)} title="Tăng 1s">+</button>
+            </div>
           </div>
         );
       } else if (trackType === 'subtitle') {
+        if (!trackVisibility.subtitle) return null;
         return (
           <div 
             key={scene.id} 
@@ -649,11 +736,16 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <Type size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.text}</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>{scene.text}</span>
             <div className="subtitle-outline-visual" />
+            <div className="trim-controls">
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, -1, e)} title="Giảm 1s">-</button>
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, 1, e)} title="Tăng 1s">+</button>
+            </div>
           </div>
         );
       } else { // FX track
+        if (!trackVisibility.fx) return null;
         const fxLabels: Record<string, string> = {
           none: 'Không FX',
           cinematic: 'Cinematic Glow',
@@ -677,13 +769,90 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <Zap size={12} style={{ marginRight: '6px', minWidth: '12px', color: hasFx ? '#f472b6' : 'inherit' }} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>
               {hasFx ? fxLabels[scene.fx] : 'Chưa áp FX'}
             </span>
+            <div className="trim-controls">
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, -1, e)} title="Giảm 1s">-</button>
+              <button className="trim-btn" onClick={(e) => adjustSceneDuration(idx, 1, e)} title="Tăng 1s">+</button>
+            </div>
           </div>
         );
       }
     });
+  };
+
+
+  // Kdenlive Track Controls Left Panel Generator
+  const renderTrackControlsLeft = (trackType: 'visual' | 'fx' | 'audio' | 'subtitle') => {
+    const isLocked = trackLocks[trackType];
+    const isMuted = trackType === 'audio' || trackType === 'subtitle' ? trackMutes[trackType as 'audio' | 'subtitle'] : false;
+    const isVisible = trackType !== 'audio' ? trackVisibility[trackType as 'visual' | 'fx' | 'subtitle'] : true;
+
+    const toggleLock = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setTrackLocks(prev => {
+        const next = { ...prev, [trackType]: !prev[trackType] };
+        addLog(`Đã ${next[trackType] ? 'Khóa' : 'Mở khóa'} luồng ${trackType.toUpperCase()}`, 'info');
+        return next;
+      });
+    };
+
+    const toggleMute = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (trackType !== 'audio' && trackType !== 'subtitle') return;
+      setTrackMutes(prev => {
+        const next = { ...prev, [trackType]: !prev[trackType as 'audio' | 'subtitle'] };
+        addLog(`Đã ${next[trackType as 'audio' | 'subtitle'] ? 'Tắt tiếng' : 'Bật tiếng'} luồng ${trackType.toUpperCase()}`, 'info');
+        return next;
+      });
+    };
+
+    const toggleVisibility = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (trackType === 'audio') return;
+      setTrackVisibility(prev => {
+        const next = { ...prev, [trackType]: !prev[trackType as 'visual' | 'fx' | 'subtitle'] };
+        addLog(`Đã ${next[trackType as 'visual' | 'fx' | 'subtitle'] ? 'Hiển thị' : 'Ẩn'} luồng ${trackType.toUpperCase()}`, 'info');
+        return next;
+      });
+    };
+
+    const labelsMap = {
+      visual: 'V1 Visual',
+      fx: 'V2 FX',
+      audio: 'A1 Voice',
+      subtitle: 'S1 Subs'
+    };
+
+    return (
+      <div className={`timeline-track-label track-${trackType}`}>
+        <span style={{ flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', fontWeight: 600 }}>
+          {labelsMap[trackType]}
+        </span>
+
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {/* Lock Button */}
+          <button className={`track-action-btn ${isLocked ? 'active' : ''}`} onClick={toggleLock}>
+            {isLocked ? <Lock size={10} style={{ color: 'var(--primary)' }} /> : <Unlock size={10} />}
+          </button>
+          
+          {/* Visibility / Eye Button */}
+          {trackType !== 'audio' && (
+            <button className={`track-action-btn ${!isVisible ? 'active' : ''}`} onClick={toggleVisibility}>
+              {isVisible ? <Eye size={10} /> : <EyeOff size={10} style={{ color: 'var(--error)' }} />}
+            </button>
+          )}
+
+          {/* Mute Button */}
+          {(trackType === 'audio' || trackType === 'subtitle') && (
+            <button className={`track-action-btn ${isMuted ? 'active' : ''}`} onClick={toggleMute}>
+              {isMuted ? <VolumeX size={10} style={{ color: 'var(--error)' }} /> : <Volume2 size={10} />}
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -698,6 +867,22 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             </h1>
             <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hệ điều phối AI Agents & Pipeline Âm thanh Phụ đề</p>
           </div>
+        </div>
+
+        {/* Toggle Mode Buttons style in Kdenlive style */}
+        <div className="mode-toggle-group">
+          <button 
+            className={`mode-toggle-btn ${editorMode === 'workflow' ? 'active' : ''}`} 
+            onClick={() => setEditorMode('workflow')}
+          >
+            Workflow (n8n)
+          </button>
+          <button 
+            className={`mode-toggle-btn ${editorMode === 'kdenlive' ? 'active' : ''}`} 
+            onClick={() => setEditorMode('kdenlive')}
+          >
+            Dựng Phim (Kdenlive)
+          </button>
         </div>
 
         <div className="actions-section">
@@ -722,478 +907,730 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
         </div>
       </div>
 
-      {/* Main Workspace */}
-      <div className="workspace-container">
-        {/* Left Sidebar */}
-        <div className="sidebar-left" style={{ gap: '16px' }}>
-          <div style={{ padding: '16px 20px 0 20px' }}>
-            <div className="sidebar-header" style={{ padding: 0, border: 'none', marginBottom: '8px' }}>
-              Mẫu Thiết Kế (Templates)
+      {/* Main Workspace (conditional rendering based on editorMode) */}
+      {editorMode === 'workflow' ? (
+        <div className="workspace-container">
+          {/* Left Sidebar */}
+          <div className="sidebar-left" style={{ gap: '16px' }}>
+            <div style={{ padding: '16px 20px 0 20px' }}>
+              <div className="sidebar-header" style={{ padding: 0, border: 'none', marginBottom: '8px' }}>
+                Mẫu Thiết Kế (Templates)
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('prompt')}>
+                  <Type size={14} className="color-ai" />
+                  Prompt sang Video
+                </button>
+                <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('doc')}>
+                  <FileText size={14} style={{ color: '#10b981' }} />
+                  Tài liệu sang Video
+                </button>
+                <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('blog')}>
+                  <Globe size={14} style={{ color: '#3b82f6' }} />
+                  Blog sang Social Video
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('prompt')}>
-                <Type size={14} className="color-ai" />
-                Prompt sang Video
-              </button>
-              <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('doc')}>
-                <FileText size={14} style={{ color: '#10b981' }} />
-                Tài liệu sang Video
-              </button>
-              <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('blog')}>
-                <Globe size={14} style={{ color: '#3b82f6' }} />
-                Blog sang Social Video
-              </button>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div className="sidebar-header">Thư viện Node</div>
+              <div className="node-list" style={{ paddingTop: '8px' }}>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'trigger')}>
+                  <div className="node-icon-wrapper color-trigger"><Play size={14} fill="white" /></div>
+                  <div><div className="node-palette-name">Trigger</div><div className="node-palette-desc">Kích hoạt luồng</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'docInput')}>
+                  <div className="node-icon-wrapper" style={{ backgroundColor: '#10b981' }}><FileText size={14} /></div>
+                  <div><div className="node-palette-name">Tài Liệu</div><div className="node-palette-desc">Nhận tệp văn bản</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'urlInput')}>
+                  <div className="node-icon-wrapper" style={{ backgroundColor: '#3b82f6' }}><Globe size={14} /></div>
+                  <div><div className="node-palette-name">Liên Kết Blog</div><div className="node-palette-desc">Nhập địa chỉ URL</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'aiNode')}>
+                  <div className="node-icon-wrapper color-ai"><Cpu size={14} /></div>
+                  <div><div className="node-palette-name">AI Script</div><div className="node-palette-desc">Biên tập kịch bản</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'visualNode')}>
+                  <div className="node-icon-wrapper color-visual"><ImageIcon size={14} /></div>
+                  <div><div className="node-palette-name">Visual Node</div><div className="node-palette-desc">Sinh hình ảnh AI</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'audioTTS')}>
+                  <div className="node-icon-wrapper" style={{ backgroundColor: '#8b5cf6' }}><Volume2 size={14} /></div>
+                  <div><div className="node-palette-name">Lồng Tiếng AI</div><div className="node-palette-desc">TTS đa giọng đọc</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'subtitle')}>
+                  <div className="node-icon-wrapper" style={{ backgroundColor: '#f43f5e' }}><Type size={14} /></div>
+                  <div><div className="node-palette-name">Phụ Đề</div><div className="node-palette-desc">Thêm phụ đề chữ chạy</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'renderNode')}>
+                  <div className="node-icon-wrapper color-render"><Film size={14} /></div>
+                  <div><div className="node-palette-name">Xuất Bản</div><div className="node-palette-desc">Xuất video MP4</div></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div className="sidebar-header">Thư viện Node</div>
-            <div className="node-list" style={{ paddingTop: '8px' }}>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'trigger')}>
-                <div className="node-icon-wrapper color-trigger"><Play size={14} fill="white" /></div>
-                <div><div className="node-palette-name">Trigger</div><div className="node-palette-desc">Kích hoạt luồng</div></div>
-              </div>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'docInput')}>
-                <div className="node-icon-wrapper" style={{ backgroundColor: '#10b981' }}><FileText size={14} /></div>
-                <div><div className="node-palette-name">Tài Liệu</div><div className="node-palette-desc">Nhận tệp văn bản</div></div>
-              </div>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'urlInput')}>
-                <div className="node-icon-wrapper" style={{ backgroundColor: '#3b82f6' }}><Globe size={14} /></div>
-                <div><div className="node-palette-name">Liên Kết Blog</div><div className="node-palette-desc">Nhập địa chỉ URL</div></div>
-              </div>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'aiNode')}>
-                <div className="node-icon-wrapper color-ai"><Cpu size={14} /></div>
-                <div><div className="node-palette-name">AI Script</div><div className="node-palette-desc">Biên tập kịch bản</div></div>
-              </div>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'visualNode')}>
-                <div className="node-icon-wrapper color-visual"><ImageIcon size={14} /></div>
-                <div><div className="node-palette-name">Visual Node</div><div className="node-palette-desc">Sinh hình ảnh AI</div></div>
-              </div>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'audioTTS')}>
-                <div className="node-icon-wrapper" style={{ backgroundColor: '#8b5cf6' }}><Volume2 size={14} /></div>
-                <div><div className="node-palette-name">Lồng Tiếng AI</div><div className="node-palette-desc">TTS đa giọng đọc</div></div>
-              </div>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'subtitle')}>
-                <div className="node-icon-wrapper" style={{ backgroundColor: '#f43f5e' }}><Type size={14} /></div>
-                <div><div className="node-palette-name">Phụ Đề</div><div className="node-palette-desc">Thêm phụ đề chữ chạy</div></div>
-              </div>
-              <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'renderNode')}>
-                <div className="node-icon-wrapper color-render"><Film size={14} /></div>
-                <div><div className="node-palette-name">Xuất Bản</div><div className="node-palette-desc">Xuất video MP4</div></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Center Canvas */}
-        <div 
-          className="canvas-wrapper"
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            fitView
+          {/* Center Canvas */}
+          <div 
+            className="canvas-wrapper"
+            onDragOver={onDragOver}
+            onDrop={onDrop}
           >
-            <Controls />
-            <MiniMap style={{ bottom: 270 }} />
-            <Background color="#ccc" gap={16} />
-          </ReactFlow>
-        </div>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              fitView
+            >
+              <Background color="#ccc" gap={16} />
+            </ReactFlow>
+          </div>
 
-        {/* Right Sidebar - Inspector */}
-        <div className="sidebar-right">
-          <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Bảng Thuộc Tính</span>
-            {selectedNode && (
-              <button 
-                onClick={deleteNode}
-                style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer' }}
-                title="Xóa node"
-              >
-                <Trash2 size={16} />
-              </button>
+          {/* Right Sidebar - Inspector */}
+          <div className="sidebar-right">
+            <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Bảng Thuộc Tính</span>
+              {selectedNode && (
+                <button 
+                  onClick={deleteNode}
+                  style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer' }}
+                  title="Xóa node"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+            
+            {!selectedNode ? (
+              <div className="inspector-empty">
+                <Settings size={36} strokeWidth={1.5} />
+                <p style={{ fontWeight: 500 }}>Chưa chọn Node</p>
+                <p style={{ fontSize: '12px' }}>Nhấp vào node trên canvas để thay đổi thông số.</p>
+              </div>
+            ) : (
+              <div className="inspector-content">
+                <h3 className="inspector-title">{String(selectedNode.data.label)}</h3>
+
+                {/* Input Prompt Node */}
+                {selectedNode.type === 'inputNode' && (
+                  <div className="form-group">
+                    <label className="form-label">Ý tưởng / Prompt video:</label>
+                    <textarea 
+                      className="form-textarea" 
+                      rows={4}
+                      value={promptValue}
+                      onChange={(e) => setPromptValue(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Doc Input Node */}
+                {selectedNode.type === 'docInput' && (
+                  <div className="form-group">
+                    <label className="form-label">Tên file tài liệu tải lên:</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={docValue}
+                      onChange={(e) => setDocValue(e.target.value)}
+                    />
+                    <button className="btn btn-primary" style={{ marginTop: '8px', fontSize: '12px' }}>
+                      Tải tệp tin (.txt/.pdf)
+                    </button>
+                  </div>
+                )}
+
+                {/* URL Input Node */}
+                {selectedNode.type === 'urlInput' && (
+                  <div className="form-group">
+                    <label className="form-label">Liên kết bài viết (URL):</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={urlValue}
+                      onChange={(e) => setUrlValue(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* AI Script Node */}
+                {selectedNode.type === 'aiNode' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Giọng điệu biên tập:</label>
+                      <select className="form-select" value={aiTone} onChange={(e) => setAiTone(e.target.value)}>
+                        <option value="truyen-cam">Truyền cảm, sâu lắng</option>
+                        <option value="hai-huoc">Hài hước, dí dỏm</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Số cảnh phân tách:</label>
+                      <select className="form-select" value={sceneCount} onChange={(e) => setSceneCount(Number(e.target.value))}>
+                        <option value={3}>3 phân cảnh</option>
+                        <option value={5}>5 phân cảnh</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Visual Node */}
+                {selectedNode.type === 'visualNode' && (
+                  <div className="form-group">
+                    <label className="form-label">Mỹ thuật hình ảnh:</label>
+                    <select className="form-select" value={imageStyle} onChange={(e) => setImageStyle(e.target.value)}>
+                      <option value="cinematic">Cinematic (Điện ảnh)</option>
+                      <option value="anime">Anime (Hoạt hình)</option>
+                      <option value="3d-render">3D Đồ họa</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Audio TTS Node */}
+                {selectedNode.type === 'audioTTS' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Giọng đọc lồng tiếng:</label>
+                      <select className="form-select" value={ttsVoice} onChange={(e) => setTtsVoice(e.target.value)}>
+                        <option value="nu-mien-bac">Nữ miền Bắc (Ấm áp)</option>
+                        <option value="nam-mien-nam">Nam miền Nam (Dễ thương)</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Tốc độ đọc:</label>
+                      <select className="form-select" value={ttsSpeed} onChange={(e) => setTtsSpeed(e.target.value)}>
+                        <option value="0.9">Chậm (0.9x)</option>
+                        <option value="1.0">Bình thường (1.0x)</option>
+                        <option value="1.2">Nhanh (1.2x)</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Subtitle Node */}
+                {selectedNode.type === 'subtitle' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Kiểu phụ đề:</label>
+                      <select className="form-select" value={subStyle} onChange={(e) => setSubStyle(e.target.value)}>
+                        <option value="tiktok">Chữ chạy TikTok (Viền đen)</option>
+                        <option value="vintage">Điện ảnh cổ điển (Courier)</option>
+                        <option value="cinematic">Cinematic tiêu chuẩn (Sleek)</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Màu chữ phụ đề:</label>
+                      <input 
+                        type="color" 
+                        className="form-input" 
+                        style={{ height: '40px', padding: '2px' }}
+                        value={subColor} 
+                        onChange={(e) => setSubColor(e.target.value)} 
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Render Node */}
+                {selectedNode.type === 'renderNode' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Tỷ lệ video:</label>
+                      <select className="form-select" value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                        <option value="9:16">Dọc (9:16) - TikTok/Reels</option>
+                        <option value="16:9">Ngang (16:9) - YouTube</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Tốc độ chuyển cảnh:</label>
+                      <select className="form-select" value={transitionSpeed} onChange={(e) => setTransitionSpeed(e.target.value)}>
+                        <option value="slow">Chậm (Mượt mà)</option>
+                        <option value="normal">Bình thường</option>
+                        <option value="fast">Nhanh (Kịch tính)</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Active scene configurations */}
+                {workflowCompleted && (
+                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid var(--border-dark)' }}>
+                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)', marginBottom: '12px' }}>
+                      Thiết lập Cảnh {activeSceneIndex + 1}
+                    </h4>
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label">Bộ lọc hiệu ứng FX:</label>
+                      <select 
+                        className="form-select"
+                        value={scenes[activeSceneIndex].fx}
+                        onChange={(e) => handleSceneFxChange(activeSceneIndex, e.target.value)}
+                      >
+                        <option value="none">Không có hiệu ứng</option>
+                        <option value="cinematic">Cinematic Glow (Màu ấm)</option>
+                        <option value="vintage">Vintage Sepia (Phim cổ)</option>
+                        <option value="noir">Noir Grayscale (Đen trắng)</option>
+                        <option value="glitch">Glitch Art (Nhiễu sóng)</option>
+                        <option value="blur">Soft Blur (Làm mờ)</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Thời lượng cảnh (giây):</label>
+                      <input 
+                        type="number" 
+                        min={1} 
+                        max={15} 
+                        className="form-input" 
+                        value={scenes[activeSceneIndex].duration} 
+                        onChange={(e) => {
+                          const val = Math.max(1, Number(e.target.value));
+                          setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
+                        }} 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-          
-          {!selectedNode ? (
-            <div className="inspector-empty">
-              <Settings size={36} strokeWidth={1.5} />
-              <p style={{ fontWeight: 500 }}>Chưa chọn Node</p>
-              <p style={{ fontSize: '12px' }}>Nhấp vào node trên canvas để thay đổi thông số.</p>
+
+          {/* Bottom Panel */}
+          <div className="bottom-panel">
+            <div className="bottom-tab-container">
+              <div className="bottom-tabs-header">
+                <button className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>
+                  Phân Cảnh CapCut (Timeline)
+                </button>
+                <button className={`tab-btn ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
+                  Nhật Ký (Console)
+                </button>
+                <button className={`tab-btn ${activeTab === 'agents' ? 'active' : ''}`} onClick={() => setActiveTab('agents')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Users size={14} />
+                    Điều phối Agents
+                  </span>
+                </button>
+              </div>
+
+              <div className="tab-content">
+                {activeTab === 'logs' && (
+                  <div className="logs-console">
+                    {logs.map((log, idx) => (
+                      <div key={idx} className="log-entry">
+                        <span className="log-time">[{log.time}]</span>
+                        <span className={`log-${log.type}`}>
+                          {log.type === 'success' ? '✔' : 'ℹ'} {log.message}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'timeline' && (
+                  <div style={{ height: '100%' }}>
+                    {!workflowCompleted ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', gap: '8px' }}>
+                        <Film size={28} strokeWidth={1.5} />
+                        <p style={{ fontSize: '13px' }}>Chưa có phân cảnh nào được dựng. Nhấp <strong>Chạy thử</strong> ở trên để tạo.</p>
+                      </div>
+                    ) : (
+                      /* CapCut Multi-track timeline view */
+                      <div className="timeline-tracks-container">
+                        {/* 1. Time Ruler */}
+                        <div className="time-ruler" onClick={handleTimelineClick}>
+                          {renderRulerTicks()}
+                          {/* Red Playhead line */}
+                          <div 
+                            className="playhead" 
+                            style={{ left: `${currentTime * timelineScale}px` }}
+                          >
+                            <div className="playhead-handle" />
+                          </div>
+                        </div>
+
+                        {/* 2. Visual Track */}
+                        <div className="timeline-track-row">
+                          {renderTrackControlsLeft('visual')}
+                          <div className="timeline-track-content" onClick={handleTimelineClick}>
+                            {buildTrackBlocks('visual')}
+                          </div>
+                        </div>
+
+                        {/* 3. FX Track */}
+                        <div className="timeline-track-row">
+                          {renderTrackControlsLeft('fx')}
+                          <div className="timeline-track-content" onClick={handleTimelineClick}>
+                            {buildTrackBlocks('fx')}
+                          </div>
+                        </div>
+
+                        {/* 4. Audio Track */}
+                        <div className="timeline-track-row">
+                          {renderTrackControlsLeft('audio')}
+                          <div className="timeline-track-content" onClick={handleTimelineClick}>
+                            {buildTrackBlocks('audio')}
+                          </div>
+                        </div>
+
+                        {/* 5. Subtitle Track */}
+                        <div className="timeline-track-row" style={{ borderBottom: 'none' }}>
+                          {renderTrackControlsLeft('subtitle')}
+                          <div className="timeline-track-content" onClick={handleTimelineClick}>
+                            {buildTrackBlocks('subtitle')}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'agents' && (
+                  <div className="logs-console" style={{ gap: '10px' }}>
+                    {agentLogs.length === 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', padding: '20px' }}>
+                        <Users size={28} strokeWidth={1.5} style={{ marginBottom: '8px' }} />
+                        <p style={{ fontSize: '12px' }}>Không có cuộc thảo luận nào. Nhấp <strong>Chạy thử</strong> để xem hoạt động Agent Orchestration.</p>
+                      </div>
+                    ) : (
+                      agentLogs.map((chat, idx) => (
+                        <div key={idx} style={{ padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', borderLeft: `4px solid ${chat.color}` }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <strong style={{ color: chat.color, fontSize: '12px' }}>{chat.agent}</strong>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{chat.time}</span>
+                          </div>
+                          <p style={{ fontSize: '12px', color: 'var(--text-primary)', margin: 0 }}>{chat.message}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="inspector-content">
-              <h3 className="inspector-title">{String(selectedNode.data.label)}</h3>
 
-              {/* Input Prompt Node */}
-              {selectedNode.type === 'inputNode' && (
-                <div className="form-group">
-                  <label className="form-label">Ý tưởng / Prompt video:</label>
-                  <textarea 
-                    className="form-textarea" 
-                    rows={4}
-                    value={promptValue}
-                    onChange={(e) => setPromptValue(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {/* Doc Input Node */}
-              {selectedNode.type === 'docInput' && (
-                <div className="form-group">
-                  <label className="form-label">Tên file tài liệu tải lên:</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={docValue}
-                    onChange={(e) => setDocValue(e.target.value)}
-                  />
-                  <button className="btn btn-primary" style={{ marginTop: '8px', fontSize: '12px' }}>
-                    Tải tệp tin (.txt/.pdf)
-                  </button>
-                </div>
-              )}
-
-              {/* URL Input Node */}
-              {selectedNode.type === 'urlInput' && (
-                <div className="form-group">
-                  <label className="form-label">Liên kết bài viết (URL):</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={urlValue}
-                    onChange={(e) => setUrlValue(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {/* AI Script Node */}
-              {selectedNode.type === 'aiNode' && (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">Giọng điệu biên tập:</label>
-                    <select className="form-select" value={aiTone} onChange={(e) => setAiTone(e.target.value)}>
-                      <option value="truyen-cam">Truyền cảm, sâu lắng</option>
-                      <option value="hai-huoc">Hài hước, dí dỏm</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Số cảnh phân tách:</label>
-                    <select className="form-select" value={sceneCount} onChange={(e) => setSceneCount(Number(e.target.value))}>
-                      <option value={3}>3 phân cảnh</option>
-                      <option value={5}>5 phân cảnh</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* Visual Node */}
-              {selectedNode.type === 'visualNode' && (
-                <div className="form-group">
-                  <label className="form-label">Mỹ thuật hình ảnh:</label>
-                  <select className="form-select" value={imageStyle} onChange={(e) => setImageStyle(e.target.value)}>
-                    <option value="cinematic">Cinematic (Điện ảnh)</option>
-                    <option value="anime">Anime (Hoạt hình)</option>
-                    <option value="3d-render">3D Đồ họa</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Audio TTS Node */}
-              {selectedNode.type === 'audioTTS' && (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">Giọng đọc lồng tiếng:</label>
-                    <select className="form-select" value={ttsVoice} onChange={(e) => setTtsVoice(e.target.value)}>
-                      <option value="nu-mien-bac">Nữ miền Bắc (Ấm áp)</option>
-                      <option value="nam-mien-nam">Nam miền Nam (Dễ thương)</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Tốc độ đọc:</label>
-                    <select className="form-select" value={ttsSpeed} onChange={(e) => setTtsSpeed(e.target.value)}>
-                      <option value="0.9">Chậm (0.9x)</option>
-                      <option value="1.0">Bình thường (1.0x)</option>
-                      <option value="1.2">Nhanh (1.2x)</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* Subtitle Node */}
-              {selectedNode.type === 'subtitle' && (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">Kiểu phụ đề:</label>
-                    <select className="form-select" value={subStyle} onChange={(e) => setSubStyle(e.target.value)}>
-                      <option value="tiktok">Chữ chạy TikTok (Viền đen)</option>
-                      <option value="vintage">Điện ảnh cổ điển (Courier)</option>
-                      <option value="cinematic">Cinematic tiêu chuẩn (Sleek)</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Màu chữ phụ đề:</label>
-                    <input 
-                      type="color" 
-                      className="form-input" 
-                      style={{ height: '40px', padding: '2px' }}
-                      value={subColor} 
-                      onChange={(e) => setSubColor(e.target.value)} 
+            {/* Video Preview Screen */}
+            <div className="video-preview-wrapper" style={{ width: aspectRatio === '9:16' ? '220px' : '340px', transition: 'width 0.3s ease' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>
+                Màn hình xem trước
+              </span>
+              <div className="video-screen" style={{ aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '170px' }}>
+                {workflowCompleted ? (
+                  <>
+                    <img 
+                      src={scenes[activeSceneIndex].image} 
+                      alt="Active scene" 
+                      className={getFxClass()}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
                     />
-                  </div>
-                </>
-              )}
-
-              {/* Render Node */}
-              {selectedNode.type === 'renderNode' && (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">Tỷ lệ video:</label>
-                    <select className="form-select" value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                      <option value="9:16">Dọc (9:16) - TikTok/Reels</option>
-                      <option value="16:9">Ngang (16:9) - YouTube</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Tốc độ chuyển cảnh:</label>
-                    <select className="form-select" value={transitionSpeed} onChange={(e) => setTransitionSpeed(e.target.value)}>
-                      <option value="slow">Chậm (Mượt mà)</option>
-                      <option value="normal">Bình thường</option>
-                      <option value="fast">Nhanh (Kịch tính)</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* Custom active scene configuration (FX, text, duration) inside Inspector */}
-              {workflowCompleted && (
-                <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid var(--border-dark)' }}>
-                  <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)', marginBottom: '12px' }}>
-                    Thiết lập Cảnh {activeSceneIndex + 1}
-                  </h4>
-                  <div className="form-group" style={{ marginBottom: '12px' }}>
-                    <label className="form-label">Bộ lọc hiệu ứng FX:</label>
-                    <select 
-                      className="form-select"
-                      value={scenes[activeSceneIndex].fx}
-                      onChange={(e) => handleSceneFxChange(activeSceneIndex, e.target.value)}
-                    >
-                      <option value="none">Không có hiệu ứng</option>
-                      <option value="cinematic">Cinematic Glow (Màu ấm điện ảnh)</option>
-                      <option value="vintage">Vintage Sepia (Phim cổ điển)</option>
-                      <option value="noir">Noir Grayscale (Đen trắng nghệ thuật)</option>
-                      <option value="glitch">Glitch Art (Nhiễu sóng động)</option>
-                      <option value="blur">Soft Blur (Nhòe mờ nền)</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Thời lượng cảnh (giây):</label>
-                    <input 
-                      type="number" 
-                      min={1} 
-                      max={15} 
-                      className="form-input" 
-                      value={scenes[activeSceneIndex].duration} 
-                      onChange={(e) => {
-                        const val = Math.max(1, Number(e.target.value));
-                        setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
-                      }} 
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Bottom Panel */}
-        <div className="bottom-panel">
-          <div className="bottom-tab-container">
-            <div className="bottom-tabs-header">
-              <button className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>
-                Phân Cảnh CapCut (Timeline)
-              </button>
-              <button className={`tab-btn ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
-                Nhật Ký (Console)
-              </button>
-              <button className={`tab-btn ${activeTab === 'agents' ? 'active' : ''}`} onClick={() => setActiveTab('agents')}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Users size={14} />
-                  Điều phối Agents
-                </span>
-              </button>
-            </div>
-
-            <div className="tab-content">
-              {activeTab === 'logs' && (
-                <div className="logs-console">
-                  {logs.map((log, idx) => (
-                    <div key={idx} className="log-entry">
-                      <span className="log-time">[{log.time}]</span>
-                      <span className={`log-${log.type}`}>
-                        {log.type === 'success' ? '✔' : 'ℹ'} {log.message}
+                    <div style={{ position: 'absolute', bottom: '15px', left: '10px', right: '10px', display: 'flex', justifyContent: 'center' }}>
+                      <span style={getSubStyle()}>
+                        {scenes[activeSceneIndex].text}
                       </span>
                     </div>
-                  ))}
+                    <div 
+                      className="video-play-indicator"
+                      onClick={() => setIsPlayingPreview(!isPlayingPreview)}
+                    >
+                      {isPlayingPreview ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: '2px' }} />}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: '#4b5563', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
+                    Đang chờ xuất bản video...
+                  </div>
+                )}
+              </div>
+              {workflowCompleted && (
+                <div style={{ display: 'flex', gap: '12px', marginTop: '8px', width: '100%', justifyContent: 'center' }}>
+                  <button 
+                    className="btn" 
+                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                    onClick={() => {
+                      setCurrentTime(0);
+                      setIsPlayingPreview(false);
+                    }}
+                  >
+                    <RotateCcw size={12} />
+                    Reset
+                  </button>
+                  <span style={{ fontSize: '11px', alignSelf: 'center', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
+                    {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
+                  </span>
                 </div>
               )}
-
-              {activeTab === 'timeline' && (
-                <div style={{ height: '100%' }}>
-                  {!workflowCompleted ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', gap: '8px' }}>
-                      <Film size={28} strokeWidth={1.5} />
-                      <p style={{ fontSize: '13px' }}>Chưa có phân cảnh nào được dựng. Nhấp <strong>Chạy thử</strong> ở trên để tạo.</p>
-                    </div>
-                  ) : (
-                    /* CapCut Multi-track timeline view */
-                    <div className="timeline-tracks-container">
-                      {/* 1. Time Ruler */}
-                      <div className="time-ruler" onClick={handleTimelineClick}>
-                        {renderRulerTicks()}
-                        {/* Red Playhead line */}
-                        <div 
-                          className="playhead" 
-                          style={{ left: `${currentTime * timelineScale}px` }}
-                        >
-                          <div className="playhead-handle" />
-                        </div>
-                      </div>
-
-                      {/* 2. Visual Track (Supports Drag-and-drop to reorder) */}
-                      <div className="timeline-track-row">
-                        <div className="timeline-track-label">
-                          <ImageIcon size={12} />
-                          Hình ảnh
-                        </div>
-                        <div className="timeline-track-content" onClick={handleTimelineClick}>
-                          {buildTrackBlocks('visual')}
-                        </div>
-                      </div>
-
-                      {/* 3. FX Track (Hiển thị các hiệu ứng FX) */}
-                      <div className="timeline-track-row">
-                        <div className="timeline-track-label">
-                          <Zap size={12} />
-                          Hiệu ứng FX
-                        </div>
-                        <div className="timeline-track-content" onClick={handleTimelineClick}>
-                          {buildTrackBlocks('fx')}
-                        </div>
-                      </div>
-
-                      {/* 4. Audio Track */}
-                      <div className="timeline-track-row">
-                        <div className="timeline-track-label">
-                          <Volume2 size={12} />
-                          Lồng tiếng
-                        </div>
-                        <div className="timeline-track-content" onClick={handleTimelineClick}>
-                          {buildTrackBlocks('audio')}
-                        </div>
-                      </div>
-
-                      {/* 5. Subtitle Track */}
-                      <div className="timeline-track-row" style={{ borderBottom: 'none' }}>
-                        <div className="timeline-track-label">
-                          <Type size={12} />
-                          Phụ đề
-                        </div>
-                        <div className="timeline-track-content" onClick={handleTimelineClick}>
-                          {buildTrackBlocks('subtitle')}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Kdenlive Full Editor Mode Layout */
+        <div className="kdenlive-container">
+          <div className="kdenlive-top-row">
+            {/* 1. Project Bin */}
+            <div className="project-bin">
+              <div className="kdenlive-panel-header">
+                <Folder size={12} />
+                Project Bin (Kho tài liệu)
+              </div>
+              <div className="kdenlive-panel-content">
+                <div className="media-item">
+                  <FileText size={16} style={{ color: '#10b981' }} />
+                  <div className="media-item-info">
+                    <span className="media-item-title">{docValue}</span>
+                    <span className="media-item-meta">Tệp văn bản gốc</span>
+                  </div>
                 </div>
-              )}
-
-              {activeTab === 'agents' && (
-                <div className="logs-console" style={{ gap: '10px' }}>
-                  {agentLogs.length === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', padding: '20px' }}>
-                      <Users size={28} strokeWidth={1.5} style={{ marginBottom: '8px' }} />
-                      <p style={{ fontSize: '12px' }}>Không có cuộc thảo luận nào. Nhấp <strong>Chạy thử</strong> để xem hoạt động Agent Orchestration.</p>
+                <div className="media-item">
+                  <Globe size={16} style={{ color: '#3b82f6' }} />
+                  <div className="media-item-info">
+                    <span className="media-item-title">{urlValue}</span>
+                    <span className="media-item-meta">Liên kết quét bài viết</span>
+                  </div>
+                </div>
+                <div className="media-item">
+                  <Volume2 size={16} style={{ color: '#8b5cf6' }} />
+                  <div className="media-item-info">
+                    <span className="media-item-title">Thuyết_minh_AI_TTS.mp3</span>
+                    <span className="media-item-meta">Âm thanh lồng tiếng</span>
+                  </div>
+                </div>
+                {scenes.slice(0, sceneCount).map((scene, idx) => (
+                  <div key={scene.id} className="media-item" onClick={() => setCurrentTime(idx * 4 + 0.1)}>
+                    <ImageIcon size={16} style={{ color: '#f59e0b' }} />
+                    <div className="media-item-info">
+                      <span className="media-item-title">Ảnh cảnh {idx + 1}.png</span>
+                      <span className="media-item-meta">Độ phân giải: 1080p</span>
                     </div>
-                  ) : (
-                    agentLogs.map((chat, idx) => (
-                      <div key={idx} style={{ padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', borderLeft: `4px solid ${chat.color}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <strong style={{ color: chat.color, fontSize: '12px' }}>{chat.agent}</strong>
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{chat.time}</span>
-                        </div>
-                        <p style={{ fontSize: '12px', color: 'var(--text-primary)', margin: 0 }}>{chat.message}</p>
-                      </div>
-                    ))
-                  )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 2. Effect Stack */}
+            <div className="effect-stack">
+              <div className="kdenlive-panel-header">
+                <Sliders size={12} />
+                Effect Stack (Bộ hiệu ứng của Cảnh {activeSceneIndex + 1})
+              </div>
+              <div className="kdenlive-panel-content">
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label className="form-label" style={{ color: '#cfcddb' }}>Bộ lọc hiệu ứng hình ảnh:</label>
+                  <select 
+                    className="form-select"
+                    style={{ backgroundColor: '#1a1924', border: '1px solid #3d3b4f', color: '#fff' }}
+                    value={scenes[activeSceneIndex].fx}
+                    onChange={(e) => handleSceneFxChange(activeSceneIndex, e.target.value)}
+                  >
+                    <option value="none">Không có hiệu ứng</option>
+                    <option value="cinematic">Cinematic Glow (Ánh sáng ấm)</option>
+                    <option value="vintage">Vintage Sepia (Hoài cổ)</option>
+                    <option value="noir">Noir Grayscale (Trắng đen)</option>
+                    <option value="glitch">Glitch Art (Nhiễu sóng)</option>
+                    <option value="blur">Soft Blur (Nhòe mờ)</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label className="form-label" style={{ color: '#cfcddb' }}>Thời lượng Cảnh {activeSceneIndex + 1} (giây):</label>
+                  <input 
+                    type="number"
+                    min={1}
+                    max={15}
+                    className="form-input"
+                    style={{ backgroundColor: '#1a1924', border: '1px solid #3d3b4f', color: '#fff' }}
+                    value={scenes[activeSceneIndex].duration}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value));
+                      setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
+                    }}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label className="form-label" style={{ color: '#cfcddb' }}>Văn bản phụ đề:</label>
+                  <textarea 
+                    className="form-textarea"
+                    style={{ backgroundColor: '#1a1924', border: '1px solid #3d3b4f', color: '#fff' }}
+                    rows={3}
+                    value={scenes[activeSceneIndex].text}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, text: val } : s));
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Project Monitor */}
+            <div className="project-monitor">
+              <div className="kdenlive-panel-header" style={{ width: '100%', border: 'none', background: 'none' }}>
+                <Film size={12} />
+                Project Monitor (Xem trước)
+              </div>
+              <div className="video-screen" style={{ width: aspectRatio === '9:16' ? '180px' : '300px', aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '220px', marginTop: '16px' }}>
+                {workflowCompleted ? (
+                  <>
+                    <img 
+                      src={scenes[activeSceneIndex].image} 
+                      alt="Active scene" 
+                      className={getFxClass()}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
+                    />
+                    <div style={{ position: 'absolute', bottom: '15px', left: '10px', right: '10px', display: 'flex', justifyContent: 'center' }}>
+                      <span style={getSubStyle()}>
+                        {scenes[activeSceneIndex].text}
+                      </span>
+                    </div>
+                    <div 
+                      className="video-play-indicator"
+                      onClick={() => setIsPlayingPreview(!isPlayingPreview)}
+                    >
+                      {isPlayingPreview ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: '2px' }} />}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: '#8d8a98', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
+                    Hãy chạy workflow để có tài nguyên...
+                  </div>
+                )}
+              </div>
+
+              {workflowCompleted && (
+                <div style={{ display: 'flex', gap: '12px', marginTop: '12px', alignItems: 'center' }}>
+                  <button 
+                    className="btn" 
+                    style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#242331', border: '1px solid #3d3b4f', color: '#fff' }}
+                    onClick={() => {
+                      setCurrentTime(0);
+                      setIsPlayingPreview(false);
+                    }}
+                  >
+                    <RotateCcw size={12} />
+                    Reset
+                  </button>
+                  <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#a3a1b3' }}>
+                    {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
+                  </span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Video Preview Screen */}
-          <div className="video-preview-wrapper" style={{ width: aspectRatio === '9:16' ? '220px' : '340px', transition: 'width 0.3s ease' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>
-              Màn hình xem trước
-            </span>
-            <div className="video-screen" style={{ aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '170px' }}>
-              {workflowCompleted ? (
-                <>
-                  {/* Applied active scene FX class dynamically */}
-                  <img 
-                    src={scenes[activeSceneIndex].image} 
-                    alt="Active scene" 
-                    className={getFxClass()}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
-                  />
-                  {/* Dynamic Subtitle overlay */}
-                  <div style={{ position: 'absolute', bottom: '15px', left: '10px', right: '10px', display: 'flex', justifyContent: 'center' }}>
-                    <span style={getSubStyle()}>
-                      {scenes[activeSceneIndex].text}
-                    </span>
-                  </div>
-                  <div 
-                    className="video-play-indicator"
-                    onClick={() => setIsPlayingPreview(!isPlayingPreview)}
-                  >
-                    {isPlayingPreview ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: '2px' }} />}
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: '#4b5563', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
-                  Đang chờ xuất bản video...
-                </div>
-              )}
+          {/* 4. Full Width Timeline */}
+          <div className="kdenlive-bottom-row" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="kdenlive-panel-header" style={{ height: '32px', borderBottom: '1px solid #3d3b4f' }}>
+              <Film size={12} />
+              Bảng Biên Tập Dòng Thời Gian (Kdenlive Timeline Monitor)
             </div>
+
             {workflowCompleted && (
-              <div style={{ display: 'flex', gap: '12px', marginTop: '8px', width: '100%', justifyContent: 'center' }}>
-                <button 
-                  className="btn" 
-                  style={{ padding: '4px 8px', fontSize: '11px' }}
-                  onClick={() => {
-                    setCurrentTime(0);
-                    setIsPlayingPreview(false);
-                  }}
-                >
-                  <RotateCcw size={12} />
-                  Reset
-                </button>
-                <span style={{ fontSize: '11px', alignSelf: 'center', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
-                  {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
-                </span>
+              <div className="kdenlive-timeline-toolbar">
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {/* Tool selection buttons */}
+                  <button className="snap-toggle-btn active" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ chọn (S)">S</button>
+                  <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ cắt Razor (R)">R</button>
+                  <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ dãn cách (M)">M</button>
+                  <div style={{ width: '1px', height: '16px', backgroundColor: '#3d3b4f', margin: '0 4px' }} />
+                  
+                  {/* Snap Toggle */}
+                  <button 
+                    className={`snap-toggle-btn ${isSnapEnabled ? 'active' : ''}`}
+                    onClick={() => {
+                      setIsSnapEnabled(!isSnapEnabled);
+                      addLog(`Đã ${!isSnapEnabled ? 'Bật' : 'Tắt'} chế độ Bám dính (Snap-to-Grid).`, 'info');
+                    }}
+                  >
+                    <Zap size={10} />
+                    Bám dính (Snap)
+                  </button>
+
+                  <button 
+                    className="snap-toggle-btn" 
+                    onClick={() => {
+                      addLog("Giả lập thêm luồng Video/Audio mới thành công.", "success");
+                    }}
+                    style={{ fontSize: '10px' }}
+                  >
+                    + Thêm Track
+                  </button>
+                </div>
+
+                {/* Timecode display */}
+                <div className="timecode-display-group">
+                  <span style={{ fontSize: '10px', color: '#8d8a98' }}>FPS: 25</span>
+                  <div className="timecode-display" title="Mã thời gian SMPTE (HH:MM:SS:FF)">
+                    {formatTimecode(currentTime)}
+                  </div>
+                </div>
+
+                {/* Zoom control */}
+                <div className="kdenlive-zoom-control">
+                  <span style={{ fontSize: '10px' }}>Thu phóng:</span>
+                  <input 
+                    type="range" 
+                    min={30} 
+                    max={120} 
+                    className="kdenlive-zoom-slider"
+                    value={timelineScale}
+                    onChange={(e) => setTimelineScale(Number(e.target.value))}
+                    title="Kéo để thu phóng dòng thời gian"
+                  />
+                  <span style={{ fontSize: '10px', fontFamily: 'monospace', width: '32px' }}>{timelineScale}px/s</span>
+                </div>
+              </div>
+            )}
+
+            {workflowCompleted ? (
+              <div className="timeline-tracks-container" style={{ border: 'none', borderRadius: 0, flex: 1, overflowY: 'auto' }}>
+                {/* Ruler */}
+                <div className="time-ruler" onClick={handleTimelineClick}>
+                  {renderRulerTicks()}
+                  <div className="playhead" style={{ left: `${currentTime * timelineScale}px` }}>
+                    <div className="playhead-handle" />
+                  </div>
+                </div>
+                {/* Visual row */}
+                <div className="timeline-track-row">
+                  {renderTrackControlsLeft('visual')}
+                  <div className="timeline-track-content" onClick={handleTimelineClick}>
+                    {buildTrackBlocks('visual')}
+                  </div>
+                </div>
+                {/* FX row */}
+                <div className="timeline-track-row">
+                  {renderTrackControlsLeft('fx')}
+                  <div className="timeline-track-content" onClick={handleTimelineClick}>
+                    {buildTrackBlocks('fx')}
+                  </div>
+                </div>
+                {/* Audio row */}
+                <div className="timeline-track-row">
+                  {renderTrackControlsLeft('audio')}
+                  <div className="timeline-track-content" onClick={handleTimelineClick}>
+                    {buildTrackBlocks('audio')}
+                  </div>
+                </div>
+                {/* Subtitle row */}
+                <div className="timeline-track-row" style={{ borderBottom: 'none' }}>
+                  {renderTrackControlsLeft('subtitle')}
+                  <div className="timeline-track-content" onClick={handleTimelineClick}>
+                    {buildTrackBlocks('subtitle')}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#8d8a98', gap: '8px', background: '#1a1924' }}>
+                <Film size={28} strokeWidth={1.5} />
+                <p style={{ fontSize: '13px' }}>Chưa có phân cảnh nào được dựng. Nhấp <strong>Chạy thử</strong> ở trên để tạo tài nguyên.</p>
               </div>
             )}
           </div>
+
         </div>
-      </div>
+      )}
     </div>
   );
 }
