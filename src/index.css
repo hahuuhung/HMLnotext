@@ -1116,3 +1116,175 @@ body {
   border-color: var(--primary);
 }
 
+/* Shotcut Audio Peak Meter */
+.shotcut-peak-meter-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 48px;
+  height: 220px;
+  background-color: #111;
+  border: 1px solid #3d3b4f;
+  border-radius: 4px;
+  padding: 6px;
+  gap: 4px;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.shotcut-peak-meter-channel {
+  display: flex;
+  flex-direction: column-reverse;
+  width: 8px;
+  height: 200px;
+  background-color: #1a1924;
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.peak-meter-bar {
+  width: 100%;
+  transition: height 0.05s ease;
+  background: linear-gradient(to top, 
+    #10b981 0%,     /* Green - normal */
+    #10b981 70%, 
+    #f59e0b 70%,    /* Yellow - warning */
+    #f59e0b 90%, 
+    #ef4444 90%,    /* Red - peak */
+    #ef4444 100%
+  );
+}
+
+.peak-meter-db-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 200px;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: #8d8a98;
+  text-align: right;
+  line-height: 1;
+  padding-left: 2px;
+}
+
+/* Shotcut Playlist / Filters / History Panels */
+.shotcut-panel-tabs {
+  display: flex;
+  background-color: #1a1924;
+  border-bottom: 1px solid #3d3b4f;
+  height: 32px;
+}
+
+.shotcut-panel-tab-btn {
+  background: none;
+  border: none;
+  border-right: 1px solid #2e2d3b;
+  color: #a3a1b3;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 100%;
+  transition: all 0.2s ease;
+}
+
+.shotcut-panel-tab-btn.active {
+  background-color: #242331;
+  color: #fff;
+  border-bottom: 2px solid var(--primary);
+}
+
+.shotcut-search-bar {
+  background-color: #15141e;
+  border: 1px solid #3d3b4f;
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: #fff;
+  font-size: 11px;
+  width: 100%;
+  margin-bottom: 8px;
+  outline: none;
+}
+
+.shotcut-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.shotcut-filter-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: #1a1924;
+  border: 1px solid #2e2d3b;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #e2e0e8;
+}
+
+.shotcut-filter-add-btn {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.shotcut-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shotcut-history-item {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #a3a1b3;
+  padding: 4px 8px;
+  border-bottom: 1px dashed #2e2d3b;
+}
+
+.shotcut-jobs-panel {
+  flex: 0.8;
+  background-color: #242331;
+  border-left: 1px solid #2e2d3b;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shotcut-job-item {
+  padding: 8px 12px;
+  background-color: #1a1924;
+  border: 1px solid #2e2d3b;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.shotcut-job-progress-bar {
+  height: 4px;
+  background-color: #2e2d3b;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.shotcut-job-progress-fill {
+  height: 100%;
+  background-color: #10b981;
+  transition: width 0.3s ease;
+}
+
+

@@ -25,7 +25,6 @@ import {
   Type,
   Users,
   Zap,
-  Folder,
   Sliders,
   Lock,
   Unlock,
@@ -309,6 +308,25 @@ function WorkflowBuilder() {
     addLog(`Đã chuyển sang dự án: "${target.name}"`, 'success');
   };
 
+  // Shotcut Editor Mode States
+  const [leftTab, setLeftTab] = useState<'playlist' | 'filters' | 'history'>('playlist');
+  const [filterSearch, setFilterSearch] = useState('');
+  const [peakL, setPeakL] = useState(0);
+  const [peakR, setPeakR] = useState(0);
+  const [historyList, setHistoryList] = useState<string[]>([
+    'Đã khởi tạo Workspace Shotcut',
+    'Nạp tài nguyên Project Bin thành công',
+  ]);
+  const [exportJobs, setExportJobs] = useState<{ id: string; name: string; progress: number; status: string }[]>([
+    { id: 'job-1', name: 'Xuất video_hml_916.mp4', progress: 100, status: 'Hoàn thành' }
+  ]);
+
+  const addHistory = useCallback((actionText: string) => {
+    const time = new Date().toTimeString().split(' ')[0];
+    setHistoryList(prev => [...prev, `${time} - ${actionText}`]);
+  }, []);
+
+
   const createNewProject = () => {
     const id = `project-${Date.now()}`;
     const name = `Dự án Video Mới (${new Date().toLocaleDateString()})`;
@@ -473,10 +491,21 @@ function WorkflowBuilder() {
         
         if (nextTime >= totalDuration) {
           setIsPlayingPreview(false);
+          setPeakL(0);
+          setPeakR(0);
           return 0;
         }
         return nextTime;
       });
+
+      // Animate Shotcut Audio Peak Meter
+      if (!trackMutes.audio) {
+        setPeakL(Math.floor(Math.random() * 40) + 50); // Bounces between 50% and 90%
+        setPeakR(Math.floor(Math.random() * 40) + 50);
+      } else {
+        setPeakL(0);
+        setPeakR(0);
+      }
       
       animFrameId = requestAnimationFrame(playLoop);
     };
@@ -488,12 +517,15 @@ function WorkflowBuilder() {
       });
     } else {
       if (animFrameId) cancelAnimationFrame(animFrameId);
+      setPeakL(0);
+      setPeakR(0);
     }
 
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId);
     };
-  }, [isPlayingPreview, workflowCompleted, totalDuration]);
+  }, [isPlayingPreview, workflowCompleted, totalDuration, trackMutes.audio]);
+
 
   // Map currentTime to active scene index
   useEffect(() => {
@@ -907,7 +939,9 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
       });
       return next;
     });
-    addLog(`Đã điều chỉnh thời lượng Cảnh ${idx + 1} thành ${Math.max(1, Math.min(15, scenes[idx].duration + delta))}s.`, 'info');
+    const newDur = Math.max(1, Math.min(15, scenes[idx].duration + delta));
+    addLog(`Đã điều chỉnh thời lượng Cảnh ${idx + 1} thành ${newDur}s.`, 'info');
+    addHistory(`Tỉa Cảnh ${idx + 1} thành ${newDur} giây`);
   };
 
   // Build Track Blocks dynamically
@@ -1634,137 +1668,186 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           </div>
         </div>
       ) : (
-        /* Kdenlive Full Editor Mode Layout */
-        <div className="kdenlive-container">
-          <div className="kdenlive-top-row">
-            {/* 1. Project Bin */}
-            <div className="project-bin">
-              <div className="kdenlive-panel-header">
-                <Folder size={12} />
-                Project Bin (Kho tài liệu)
+        /* Shotcut NLE Professional Layout */
+        <div className="kdenlive-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', backgroundColor: '#1a1924' }}>
+          <div className="kdenlive-top-row" style={{ display: 'flex', flex: 1.2, borderBottom: '2px solid #2e2d3b', minHeight: 0 }}>
+            
+            {/* 1. Left Sidebar: Playlist / Filters / History */}
+            <div className="project-bin" style={{ flex: 1.2, display: 'flex', flexDirection: 'column', borderRight: '1px solid #2e2d3b', minHeight: 0 }}>
+              <div className="shotcut-panel-tabs">
+                <button 
+                  className={`shotcut-panel-tab-btn ${leftTab === 'playlist' ? 'active' : ''}`}
+                  onClick={() => setLeftTab('playlist')}
+                >
+                  Playlist (DS Phát)
+                </button>
+                <button 
+                  className={`shotcut-panel-tab-btn ${leftTab === 'filters' ? 'active' : ''}`}
+                  onClick={() => setLeftTab('filters')}
+                >
+                  Bộ lọc (Filters)
+                </button>
+                <button 
+                  className={`shotcut-panel-tab-btn ${leftTab === 'history' ? 'active' : ''}`}
+                  onClick={() => setLeftTab('history')}
+                >
+                  Lịch sử
+                </button>
               </div>
-              <div className="kdenlive-panel-content">
-                <div className="media-item">
-                  <FileText size={16} style={{ color: '#10b981' }} />
-                  <div className="media-item-info">
-                    <span className="media-item-title">{docValue}</span>
-                    <span className="media-item-meta">Tệp văn bản gốc</span>
-                  </div>
-                </div>
-                <div className="media-item">
-                  <Globe size={16} style={{ color: '#3b82f6' }} />
-                  <div className="media-item-info">
-                    <span className="media-item-title">{urlValue}</span>
-                    <span className="media-item-meta">Liên kết quét bài viết</span>
-                  </div>
-                </div>
-                <div className="media-item">
-                  <Volume2 size={16} style={{ color: '#8b5cf6' }} />
-                  <div className="media-item-info">
-                    <span className="media-item-title">Thuyết_minh_AI_TTS.mp3</span>
-                    <span className="media-item-meta">Âm thanh lồng tiếng</span>
-                  </div>
-                </div>
-                {scenes.slice(0, sceneCount).map((scene, idx) => (
-                  <div key={scene.id} className="media-item" onClick={() => setCurrentTime(idx * 4 + 0.1)}>
-                    <ImageIcon size={16} style={{ color: '#f59e0b' }} />
-                    <div className="media-item-info">
-                      <span className="media-item-title">Ảnh cảnh {idx + 1}.png</span>
-                      <span className="media-item-meta">Độ phân giải: 1080p</span>
+
+              <div className="kdenlive-panel-content" style={{ flex: 1, padding: '12px', overflowY: 'auto' }}>
+                {leftTab === 'playlist' && (
+                  <div>
+                    <div className="media-item">
+                      <FileText size={16} style={{ color: '#10b981' }} />
+                      <div className="media-item-info">
+                        <span className="media-item-title">{docValue}</span>
+                        <span className="media-item-meta">Tài liệu kịch bản gốc</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 2. Effect Stack */}
-            <div className="effect-stack">
-              <div className="kdenlive-panel-header">
-                <Sliders size={12} />
-                Effect Stack (Bộ hiệu ứng của Cảnh {activeSceneIndex + 1})
-              </div>
-              <div className="kdenlive-panel-content">
-                <div className="form-group" style={{ marginBottom: '14px' }}>
-                  <label className="form-label" style={{ color: '#cfcddb' }}>Bộ lọc hiệu ứng hình ảnh:</label>
-                  <select 
-                    className="form-select"
-                    style={{ backgroundColor: '#1a1924', border: '1px solid #3d3b4f', color: '#fff' }}
-                    value={scenes[activeSceneIndex].fx}
-                    onChange={(e) => handleSceneFxChange(activeSceneIndex, e.target.value)}
-                  >
-                    <option value="none">Không có hiệu ứng</option>
-                    <option value="cinematic">Cinematic Glow (Ánh sáng ấm)</option>
-                    <option value="vintage">Vintage Sepia (Hoài cổ)</option>
-                    <option value="noir">Noir Grayscale (Trắng đen)</option>
-                    <option value="glitch">Glitch Art (Nhiễu sóng)</option>
-                    <option value="blur">Soft Blur (Nhòe mờ)</option>
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '14px' }}>
-                  <label className="form-label" style={{ color: '#cfcddb' }}>Thời lượng Cảnh {activeSceneIndex + 1} (giây):</label>
-                  <input 
-                    type="number"
-                    min={1}
-                    max={15}
-                    className="form-input"
-                    style={{ backgroundColor: '#1a1924', border: '1px solid #3d3b4f', color: '#fff' }}
-                    value={scenes[activeSceneIndex].duration}
-                    onChange={(e) => {
-                      const val = Math.max(1, Number(e.target.value));
-                      setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
-                    }}
-                  />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '14px' }}>
-                  <label className="form-label" style={{ color: '#cfcddb' }}>Văn bản phụ đề:</label>
-                  <textarea 
-                    className="form-textarea"
-                    style={{ backgroundColor: '#1a1924', border: '1px solid #3d3b4f', color: '#fff' }}
-                    rows={3}
-                    value={scenes[activeSceneIndex].text}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, text: val } : s));
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Project Monitor */}
-            <div className="project-monitor">
-              <div className="kdenlive-panel-header" style={{ width: '100%', border: 'none', background: 'none' }}>
-                <Film size={12} />
-                Project Monitor (Xem trước)
-              </div>
-              <div className="video-screen" style={{ width: aspectRatio === '9:16' ? '180px' : '300px', aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '220px', marginTop: '16px' }}>
-                {workflowCompleted ? (
-                  <>
-                    <img 
-                      src={scenes[activeSceneIndex].image} 
-                      alt="Active scene" 
-                      className={getFxClass()}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
-                    />
-                    <div style={{ position: 'absolute', bottom: '15px', left: '10px', right: '10px', display: 'flex', justifyContent: 'center' }}>
-                      <span style={getSubStyle()}>
-                        {scenes[activeSceneIndex].text}
-                      </span>
+                    <div className="media-item">
+                      <Globe size={16} style={{ color: '#3b82f6' }} />
+                      <div className="media-item-info">
+                        <span className="media-item-title">{urlValue}</span>
+                        <span className="media-item-meta">Trang quét nội dung</span>
+                      </div>
                     </div>
-                    <div 
-                      className="video-play-indicator"
-                      onClick={() => setIsPlayingPreview(!isPlayingPreview)}
-                    >
-                      {isPlayingPreview ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: '2px' }} />}
+                    <div className="media-item">
+                      <Volume2 size={16} style={{ color: '#8b5cf6' }} />
+                      <div className="media-item-info">
+                        <span className="media-item-title">Giong_Doc_AI_TTS.mp3</span>
+                        <span className="media-item-meta">Thuyết minh lồng tiếng</span>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <div style={{ color: '#8d8a98', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
-                    Hãy chạy workflow để có tài nguyên...
+                    {scenes.slice(0, sceneCount).map((scene, idx) => (
+                      <div key={scene.id} className="media-item" onClick={() => {
+                        setCurrentTime(idx * 4 + 0.1);
+                        addHistory(`Xem trước (seek) Cảnh ${idx + 1}`);
+                      }}>
+                        <ImageIcon size={16} style={{ color: '#f59e0b' }} />
+                        <div className="media-item-info">
+                          <span className="media-item-title">Video_Clip_Phan_Canh_${idx + 1}.mp4</span>
+                          <span className="media-item-meta">{scene.duration}s | 1080p</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+                {leftTab === 'filters' && (
+                  <div>
+                    <input 
+                      type="text" 
+                      className="shotcut-search-bar" 
+                      placeholder="Tìm bộ lọc Shotcut..." 
+                      value={filterSearch}
+                      onChange={(e) => setFilterSearch(e.target.value)}
+                    />
+                    
+                    <div style={{ padding: '6px', background: '#15141e', borderRadius: '4px', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Bộ lọc hiện tại:</span>
+                      <div style={{ fontSize: '12px', color: '#fff', fontWeight: 600, marginTop: '4px' }}>
+                        {scenes[activeSceneIndex]?.fx === 'none' ? 'Không có bộ lọc' : scenes[activeSceneIndex]?.fx.toUpperCase()}
+                      </div>
+                    </div>
+
+                    <span style={{ fontSize: '11px', color: '#8d8a98', fontWeight: 500 }}>Bộ lọc video khả dụng:</span>
+                    <div className="shotcut-filter-list">
+                      {[
+                        { key: 'cinematic', label: 'Cinematic Glow' },
+                        { key: 'vintage', label: 'Vintage Sepia' },
+                        { key: 'noir', label: 'Noir Grayscale' },
+                        { key: 'glitch', label: 'Glitch Art' },
+                        { key: 'blur', label: 'Soft Blur' },
+                        { key: 'none', label: 'Bỏ bộ lọc' }
+                      ]
+                        .filter(item => item.label.toLowerCase().includes(filterSearch.toLowerCase()))
+                        .map(item => (
+                          <div key={item.key} className="shotcut-filter-item">
+                            <span>{item.label}</span>
+                            <button 
+                              className="shotcut-filter-add-btn" 
+                              onClick={() => {
+                                handleSceneFxChange(activeSceneIndex, item.key);
+                                addHistory(`Áp dụng bộ lọc ${item.label} cho Cảnh ${activeSceneIndex + 1}`);
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {leftTab === 'history' && (
+                  <div className="shotcut-history-list">
+                    {historyList.map((hist, idx) => (
+                      <div key={idx} className="shotcut-history-item">
+                        {hist}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Center Panel: Project Monitor with Audio Peak Meter */}
+            <div className="project-monitor" style={{ flex: 2, borderRight: '1px solid #2e2d3b', background: '#111', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="kdenlive-panel-header" style={{ width: '100%', border: 'none', background: 'none', color: '#fff', marginBottom: '8px' }}>
+                <Film size={12} />
+                Project Monitor (Trình xem thử)
+              </div>
+              
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 0 }}>
+                {/* Video screen */}
+                <div className="video-screen" style={{ width: aspectRatio === '9:16' ? '160px' : '280px', aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '220px', position: 'relative' }}>
+                  {workflowCompleted ? (
+                    <>
+                      <img 
+                        src={scenes[activeSceneIndex].image} 
+                        alt="Active scene" 
+                        className={getFxClass()}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
+                      />
+                      <div style={{ position: 'absolute', bottom: '15px', left: '10px', right: '10px', display: 'flex', justifyContent: 'center' }}>
+                        <span style={getSubStyle()}>
+                          {scenes[activeSceneIndex].text}
+                        </span>
+                      </div>
+                      <div 
+                        className="video-play-indicator"
+                        onClick={() => setIsPlayingPreview(!isPlayingPreview)}
+                      >
+                        {isPlayingPreview ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: '2px' }} />}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ color: '#8d8a98', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
+                      Hãy chạy workflow để nạp tài nguyên...
+                    </div>
+                  )}
+                </div>
+
+                {/* Shotcut Audio Peak Meter */}
+                <div className="shotcut-peak-meter-container" title="Audio Peak Meter (Shotcut Style)">
+                  <div className="shotcut-peak-meter-channel">
+                    <div className="peak-meter-bar" style={{ height: `${peakL}%` }} />
+                  </div>
+                  <div className="shotcut-peak-meter-channel">
+                    <div className="peak-meter-bar" style={{ height: `${peakR}%` }} />
+                  </div>
+                  <div className="peak-meter-db-labels">
+                    <span>0</span>
+                    <span>-6</span>
+                    <span>-12</span>
+                    <span>-18</span>
+                    <span>-24</span>
+                    <span>-30</span>
+                    <span>-42</span>
+                    <span>-50</span>
+                  </div>
+                </div>
               </div>
 
               {workflowCompleted && (
@@ -1775,6 +1858,9 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     onClick={() => {
                       setCurrentTime(0);
                       setIsPlayingPreview(false);
+                      setPeakL(0);
+                      setPeakR(0);
+                      addHistory('Reset dòng thời gian về 0');
                     }}
                   >
                     <RotateCcw size={12} />
@@ -1786,13 +1872,62 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                 </div>
               )}
             </div>
+
+            {/* 3. Right Panel: Jobs (Export Tasks) */}
+            <div className="shotcut-jobs-panel">
+              <div className="kdenlive-panel-header">
+                <Sliders size={12} />
+                Jobs (Công việc xuất bản)
+              </div>
+              <div className="kdenlive-panel-content">
+                {exportJobs.map(job => (
+                  <div key={job.id} className="shotcut-job-item">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: 600, color: '#e2e0e8' }}>{job.name}</span>
+                      <span style={{ color: job.progress === 100 ? '#10b981' : 'var(--primary)' }}>
+                        {job.progress}%
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Trạng thái: {job.status}</span>
+                    <div className="shotcut-job-progress-bar">
+                      <div className="shotcut-job-progress-fill" style={{ width: `${job.progress}%` }} />
+                    </div>
+                  </div>
+                ))}
+                
+                <button 
+                  className="btn btn-primary" 
+                  style={{ width: '100%', fontSize: '11px', marginTop: '12px', padding: '6px' }}
+                  onClick={() => {
+                    const jobId = `job-${Date.now()}`;
+                    const newJob = { id: jobId, name: `Xuất_${promptValue.slice(0, 10)}.mp4`, progress: 0, status: 'Đang chạy' };
+                    setExportJobs(prev => [...prev, newJob]);
+                    addHistory(`Khởi tạo tiến trình xuất video: ${newJob.name}`);
+                    
+                    let prog = 0;
+                    const interval = setInterval(() => {
+                      prog += 20;
+                      setExportJobs(prev => prev.map(j => j.id === jobId ? { ...j, progress: prog, status: prog === 100 ? 'Hoàn thành' : 'Đang xử lý' } : j));
+                      if (prog >= 100) {
+                        clearInterval(interval);
+                        addHistory(`Đã xuất bản thành công file: ${newJob.name}`);
+                      }
+                    }, 800);
+                  }}
+                  disabled={!workflowCompleted}
+                >
+                  + Khởi tạo Render Job mới
+                </button>
+              </div>
+            </div>
+
           </div>
 
           {/* 4. Full Width Timeline */}
           <div className="kdenlive-bottom-row" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="kdenlive-panel-header" style={{ height: '32px', borderBottom: '1px solid #3d3b4f' }}>
               <Film size={12} />
-              Bảng Biên Tập Dòng Thời Gian (Kdenlive Timeline Monitor)
+              Shotcut Timeline Monitor (Dòng thời gian Shotcut)
             </div>
 
             {workflowCompleted && (
@@ -1810,6 +1945,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     onClick={() => {
                       setIsSnapEnabled(!isSnapEnabled);
                       addLog(`Đã ${!isSnapEnabled ? 'Bật' : 'Tắt'} chế độ Bám dính (Snap-to-Grid).`, 'info');
+                      addHistory(`Đã ${!isSnapEnabled ? 'Bật' : 'Tắt'} bám dính (Snap)`);
                     }}
                   >
                     <Zap size={10} />
@@ -1820,6 +1956,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     className="snap-toggle-btn" 
                     onClick={() => {
                       addLog("Giả lập thêm luồng Video/Audio mới thành công.", "success");
+                      addHistory("Đã thêm một track dựng video mới");
                     }}
                     style={{ fontSize: '10px' }}
                   >
@@ -1844,7 +1981,9 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     max={120} 
                     className="kdenlive-zoom-slider"
                     value={timelineScale}
-                    onChange={(e) => setTimelineScale(Number(e.target.value))}
+                    onChange={(e) => {
+                      setTimelineScale(Number(e.target.value));
+                    }}
                     title="Kéo để thu phóng dòng thời gian"
                   />
                   <span style={{ fontSize: '10px', fontFamily: 'monospace', width: '32px' }}>{timelineScale}px/s</span>
