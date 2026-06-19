@@ -42,8 +42,6 @@ import {
   AINode, 
   VisualNode, 
   RenderNode,
-  DocInputNode,
-  UrlInputNode,
   AudioTTSNode,
   SubtitleNode,
   CodeNode,
@@ -57,8 +55,8 @@ const nodeTypes = {
   aiNode: AINode,
   visualNode: VisualNode,
   renderNode: RenderNode,
-  docInput: DocInputNode,
-  urlInput: UrlInputNode,
+  docInput: InputNode,
+  urlInput: InputNode,
   audioTTS: AudioTTSNode,
   subtitle: SubtitleNode,
   codeNode: CodeNode,
@@ -143,13 +141,13 @@ function WorkflowBuilder() {
         name: 'Dự án Cà phê phin Việt Nam',
         createdAt: new Date().toLocaleString(),
         nodes: [
-          { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle' } },
-          { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: 'Hương vị Cà phê phin Việt Nam' } },
-          { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle' } },
-          { id: 't4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle' } },
-          { id: 't5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle' } },
-          { id: 't6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle' } },
-          { id: 't7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle' } },
+          { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle', subtype: 'manual' } },
+          { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: 'Hương vị Cà phê phin Việt Nam', subtype: 'prompt' } },
+          { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
+          { id: 't4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle', subtype: 'aiImage' } },
+          { id: 't5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle', subtype: 'tts' } },
+          { id: 't6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle', subtype: 'timeline' } },
+          { id: 't7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'mp4' } },
         ],
         edges: [
           { id: 'e-t1-t2', source: 't1', target: 't2' },
@@ -442,10 +440,10 @@ function WorkflowBuilder() {
       name,
       createdAt: new Date().toLocaleString(),
       nodes: [
-        { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle' } },
-        { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: 'Chủ đề video mới' } },
-        { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle' } },
-        { id: 't7', type: 'renderNode', position: { x: 700, y: 150 }, data: { label: 'Xuất Bản', status: 'idle' } },
+        { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle', subtype: 'manual' } },
+        { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: 'Chủ đề video mới', subtype: 'prompt' } },
+        { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
+        { id: 't7', type: 'renderNode', position: { x: 700, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'mp4' } },
       ],
       edges: [
         { id: 'e-t1-t2', source: 't1', target: 't2' },
@@ -712,13 +710,13 @@ function WorkflowBuilder() {
     
     if (templateType === 'prompt') {
       const templateNodes: Node[] = [
-        { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle' } },
-        { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: promptValue } },
-        { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle' } },
-        { id: 't4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle' } },
-        { id: 't5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle' } },
-        { id: 't6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle' } },
-        { id: 't7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle' } },
+        { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle', subtype: 'manual' } },
+        { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: promptValue, subtype: 'prompt' } },
+        { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
+        { id: 't4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle', subtype: 'aiImage' } },
+        { id: 't5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle', subtype: 'tts' } },
+        { id: 't6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle', subtype: 'timeline' } },
+        { id: 't7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'mp4' } },
       ];
       const templateEdges: Edge[] = [
         { id: 'e-t1-t2', source: 't1', target: 't2' },
@@ -734,13 +732,13 @@ function WorkflowBuilder() {
       addLog('Đã nạp mẫu: Prompt sang Video.', 'success');
     } else if (templateType === 'doc') {
       const templateNodes: Node[] = [
-        { id: 'd1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Tự Động', status: 'idle' } },
-        { id: 'd2', type: 'docInput', position: { x: 260, y: 150 }, data: { label: 'Tài Liệu', status: 'idle', value: docValue } },
-        { id: 'd3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle' } },
-        { id: 'd4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle' } },
-        { id: 'd5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle' } },
-        { id: 'd6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle' } },
-        { id: 'd7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle' } },
+        { id: 'd1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Tự Động', status: 'idle', subtype: 'watchFolder' } },
+        { id: 'd2', type: 'docInput', position: { x: 260, y: 150 }, data: { label: 'Tài Liệu', status: 'idle', value: docValue, subtype: 'upload' } },
+        { id: 'd3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
+        { id: 'd4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle', subtype: 'aiImage' } },
+        { id: 'd5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle', subtype: 'tts' } },
+        { id: 'd6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle', subtype: 'timeline' } },
+        { id: 'd7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'mp4' } },
       ];
       const templateEdges: Edge[] = [
         { id: 'e-d1-d2', source: 'd1', target: 'd2' },
@@ -756,13 +754,13 @@ function WorkflowBuilder() {
       addLog('Đã nạp mẫu: Tài liệu sang Video.', 'success');
     } else if (templateType === 'blog') {
       const templateNodes: Node[] = [
-        { id: 'b1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Lên Lịch', status: 'idle' } },
-        { id: 'b2', type: 'urlInput', position: { x: 260, y: 150 }, data: { label: 'Liên Kết Blog', status: 'idle', value: urlValue } },
-        { id: 'b3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle' } },
-        { id: 'b4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle' } },
-        { id: 'b5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle' } },
-        { id: 'b6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle' } },
-        { id: 'b7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle' } },
+        { id: 'b1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Lên Lịch', status: 'idle', subtype: 'schedule' } },
+        { id: 'b2', type: 'urlInput', position: { x: 260, y: 150 }, data: { label: 'Liên Kết Blog', status: 'idle', value: urlValue, subtype: 'url' } },
+        { id: 'b3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
+        { id: 'b4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle', subtype: 'aiImage' } },
+        { id: 'b5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle', subtype: 'tts' } },
+        { id: 'b6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle', subtype: 'timeline' } },
+        { id: 'b7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'social' } },
       ];
       const templateEdges: Edge[] = [
         { id: 'e-b1-b2', source: 'b1', target: 'b2' },
@@ -847,6 +845,18 @@ function WorkflowBuilder() {
       y: 120 + Math.random() * 80,
     };
 
+    const typeSubtypes: Record<string, string> = {
+      trigger: 'manual',
+      inputNode: 'prompt',
+      docInput: 'upload',
+      urlInput: 'url',
+      aiNode: 'expand',
+      visualNode: 'aiImage',
+      audioTTS: 'tts',
+      subtitle: 'timeline',
+      renderNode: 'mp4',
+    };
+
     const newNode: Node = {
       id,
       type,
@@ -854,6 +864,7 @@ function WorkflowBuilder() {
       data: { 
         label: typeLabels[type] || 'Node Mới',
         status: 'idle',
+        subtype: typeSubtypes[type] || 'manual',
         value: type === 'inputNode' ? promptValue : type === 'docInput' ? docValue : type === 'urlInput' ? urlValue : type === 'codeNode' ? codeValue : type === 'customAINode' ? customAIPrompt : undefined
       },
     };
@@ -908,6 +919,18 @@ function WorkflowBuilder() {
         renderNode: 'Xuất Bản',
       };
 
+      const typeSubtypes: Record<string, string> = {
+        trigger: 'manual',
+        inputNode: 'prompt',
+        docInput: 'upload',
+        urlInput: 'url',
+        aiNode: 'expand',
+        visualNode: 'aiImage',
+        audioTTS: 'tts',
+        subtitle: 'timeline',
+        renderNode: 'mp4',
+      };
+
       const newNode: Node = {
         id: (nodes.length + 1).toString(),
         type,
@@ -915,6 +938,7 @@ function WorkflowBuilder() {
         data: { 
           label: typeLabels[type] || 'Node Mới',
           status: 'idle',
+          subtype: typeSubtypes[type] || 'manual',
           value: type === 'inputNode' ? promptValue : type === 'docInput' ? docValue : type === 'urlInput' ? urlValue : type === 'codeNode' ? codeValue : type === 'customAINode' ? customAIPrompt : undefined
         },
       };
@@ -948,57 +972,128 @@ function WorkflowBuilder() {
     await sleep(400);
 
     // 1. Trigger
-    setNodes((nds) => nds.map((n) => (n.type === 'trigger' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-    addLog('Kích hoạt Trigger: Khởi động hệ thống điều phối Agents.', 'info');
-    await sleep(1000);
-    setNodes((nds) => nds.map((n) => (n.type === 'trigger' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
+    const triggerNodes = nodes.filter(n => n.type === 'trigger');
+    if (triggerNodes.length > 0) {
+      setNodes((nds) => nds.map((n) => (n.type === 'trigger' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
+      triggerNodes.forEach(n => {
+        const tMap: Record<string, string> = {
+          manual: 'Khởi động hệ thống điều phối Agents thủ công.',
+          schedule: 'Kích hoạt từ lịch trình tự động (Cron)...',
+          webhook: 'Đã nhận tín hiệu từ Webhook URL...',
+          watchFolder: 'Phát hiện có tệp mới trong thư mục Theo dõi...',
+          csvImport: 'Đang nạp dữ liệu hàng loạt từ tệp CSV/Sheet...'
+        };
+        addLog(`Trigger: ${tMap[n.data.subtype as string] || tMap.manual}`, 'info');
+      });
+      await sleep(1000);
+      setNodes((nds) => nds.map((n) => (n.type === 'trigger' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
+    }
 
     // 2. Input
-    setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-    addLog('Đang thu thập dữ liệu đầu vào...', 'info');
-    await sleep(1000);
-    setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'success' } } : n)));
+    const inputNodes = nodes.filter(n => ['inputNode', 'docInput', 'urlInput'].includes(n.type || ''));
+    if (inputNodes.length > 0) {
+      setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'running' } } : n)));
+      inputNodes.forEach(n => {
+        const iMap: Record<string, string> = {
+          prompt: `Đang phân tích Text Prompt: "${promptValue}"...`,
+          url: `Đang trích xuất dữ liệu từ URL: "${urlValue}"...`,
+          product: 'Đang tải dữ liệu sản phẩm từ hệ thống...',
+          upload: `Đang đọc nội dung tệp tải lên: "${docValue}"...`,
+          stock: 'Đang kết nối thư viện Stock tìm kiếm media...'
+        };
+        addLog(`Input: ${iMap[n.data.subtype as string] || iMap.prompt}`, 'info');
+      });
+      await sleep(1000);
+      setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'success' } } : n)));
+    }
 
     // 3. AI Script Node
-    setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-    addLog('Khởi chạy hội thoại điều phối Agent...', 'info');
-    addAgentLog('Biên Kịch Agent', `Đã nhận nội dung đầu vào. Tôi bắt đầu phân tách thành kịch bản phân cảnh cho chủ đề: ${promptValue}.`, '#a855f7');
-    await sleep(1200);
-    addAgentLog('Đạo Diễn Agent', 'Kịch bản cần có nhịp điệu nhanh hơn ở phần mở đầu. Hãy thêm mô tả hành động trực quan cho Cảnh 1.', '#2563eb');
-    await sleep(1200);
-    addAgentLog('Biên Kịch Agent', 'Đồng ý. Tôi đã điều chỉnh lại lời thoại và bổ sung mô tả chuyển cảnh mượt mà.', '#a855f7');
-    await sleep(1000);
-    setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-    addLog('AI Script đã hoàn thành kịch bản phân cảnh.', 'success');
+    const aiNodes = nodes.filter((n) => n.type === 'aiNode');
+    if (aiNodes.length > 0) {
+      setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
+      aiNodes.forEach(n => {
+        const subtype = n.data.subtype as string;
+        if (subtype === 'outline') {
+           addLog('AI Script: Đang phác thảo dàn ý tổng quan...', 'info');
+        } else if (subtype === 'hook3s') {
+           addLog('AI Script: Đang tạo câu Hook 3 giây đầu siêu cuốn hút...', 'info');
+        } else if (subtype === 'split') {
+           addLog('AI Script: Đang phân tách kịch bản chi tiết thành các phân cảnh độc lập...', 'info');
+        } else if (subtype === 'caption') {
+           addLog('AI Script: Đang trích xuất văn bản làm caption tự động...', 'info');
+        } else if (subtype === 'translate') {
+           addLog('AI Script: Đang dịch thuật và bản địa hóa ngôn ngữ gốc...', 'info');
+        } else {
+           addLog('Khởi chạy hội thoại điều phối Agent kịch bản AI...', 'info');
+           addAgentLog('Biên Kịch Agent', `Đã nhận nội dung đầu vào. Tôi bắt đầu phân tách thành kịch bản phân cảnh cho chủ đề: ${promptValue}.`, '#a855f7');
+        }
+      });
+      await sleep(1200);
+      addAgentLog('Đạo Diễn Agent', 'Kịch bản cần có nhịp điệu nhanh hơn ở phần mở đầu. Hãy thêm mô tả hành động trực quan cho Cảnh 1.', '#2563eb');
+      await sleep(1200);
+      addAgentLog('Biên Kịch Agent', 'Đồng ý. Tôi đã điều chỉnh lại lời thoại và bổ sung mô tả chuyển cảnh mượt mà.', '#a855f7');
+      await sleep(1000);
+      setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
+      addLog('AI Script đã hoàn thành xử lý kịch bản.', 'success');
+    }
 
     // 4. Visual Node
-    const hasVisual = nodes.some((n) => n.type === 'visualNode');
-    if (hasVisual) {
+    const visualNodes = nodes.filter((n) => n.type === 'visualNode');
+    if (visualNodes.length > 0) {
       setNodes((nds) => nds.map((n) => (n.type === 'visualNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      addAgentLog('Biên Tập Agent', `Tôi bắt đầu phác thảo hình ảnh theo phong cách nghệ thuật ${imageStyle.toUpperCase()}.`, '#10b981');
+      visualNodes.forEach(n => {
+        const subtype = n.data.subtype as string;
+        if (subtype === 'brandKit') {
+          addLog('Visual: Đang áp dụng thiết kế nhận diện Brand Kit (Logo, Colors)...', 'info');
+        } else if (subtype === 'background') {
+          addLog('Visual: Đang tạo lớp nền chuyển động cho video...', 'info');
+        } else {
+          addAgentLog('Biên Tập Agent', `Tôi bắt đầu phác thảo hình ảnh theo phong cách nghệ thuật ${imageStyle.toUpperCase()}.`, '#10b981');
+        }
+      });
       await sleep(1500);
       setNodes((nds) => nds.map((n) => (n.type === 'visualNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('Đã vẽ ảnh minh họa AI hoàn thành.', 'success');
+      addLog('Đã xử lý tác vụ Visual thành công.', 'success');
     }
 
     // 5. Audio TTS Node
-    const hasAudio = nodes.some((n) => n.type === 'audioTTS');
-    if (hasAudio) {
+    const audioNodes = nodes.filter((n) => n.type === 'audioTTS');
+    if (audioNodes.length > 0) {
       setNodes((nds) => nds.map((n) => (n.type === 'audioTTS' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      addAgentLog('Âm Thanh Agent', `Đang áp dụng giọng đọc "${ttsVoice === 'nu-mien-bac' ? 'Nữ Miền Bắc' : 'Nam Miền Nam'}" với tốc độ ${ttsSpeed}x.`, '#f59e0b');
+      audioNodes.forEach(n => {
+        const subtype = n.data.subtype as string;
+        if (subtype === 'bgMusic') {
+          addLog('Audio: Đang nạp và đồng bộ nhạc nền (Background Music)...', 'info');
+        } else if (subtype === 'sfx') {
+          addLog('Audio: Đang chèn hiệu ứng âm thanh (SFX) chuyển cảnh...', 'info');
+        } else {
+          addAgentLog('Âm Thanh Agent', `Đang áp dụng giọng đọc "${ttsVoice === 'nu-mien-bac' ? 'Nữ Miền Bắc' : 'Nam Miền Nam'}" với tốc độ ${ttsSpeed}x.`, '#f59e0b');
+        }
+      });
       await sleep(1500);
       setNodes((nds) => nds.map((n) => (n.type === 'audioTTS' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('Đã hoàn thành sinh tệp âm thanh thuyết minh AI TTS.', 'success');
+      addLog('Đã hoàn thành sinh tệp âm thanh.', 'success');
     }
 
-    // 6. Subtitle Node
-    const hasSub = nodes.some((n) => n.type === 'subtitle');
-    if (hasSub) {
+    // 6. Subtitle Node (Editing)
+    const subtitleNodes = nodes.filter((n) => n.type === 'subtitle');
+    if (subtitleNodes.length > 0) {
       setNodes((nds) => nds.map((n) => (n.type === 'subtitle' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      addAgentLog('Biên Tập Agent', `Đang thiết lập lớp phủ phụ đề dạng chữ nghệ thuật "${subStyle.toUpperCase()}" với màu sắc ${subColor}.`, '#10b981');
+      subtitleNodes.forEach(n => {
+        const subtype = n.data.subtype as string;
+        if (subtype === 'watermark') {
+          addLog('Editing: Đang chèn Watermark/Logo bản quyền...', 'info');
+        } else if (subtype === 'transition') {
+          addLog('Editing: Đang áp dụng hiệu ứng chuyển cảnh mượt mà...', 'info');
+        } else if (subtype === 'aspectRatio') {
+          addLog('Editing: Đang căn chỉnh tỷ lệ khung hình video...', 'info');
+        } else {
+          addAgentLog('Biên Tập Agent', `Đang thiết lập lớp phủ phụ đề dạng chữ nghệ thuật "${subStyle.toUpperCase()}" với màu sắc ${subColor}.`, '#10b981');
+        }
+      });
       await sleep(1000);
       setNodes((nds) => nds.map((n) => (n.type === 'subtitle' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('Đã đồng bộ thời gian phụ đề và khung hình.', 'success');
+      addLog('Đã hoàn thành công đoạn biên tập Editing.', 'success');
     }
 
     // 6b. Code Node
@@ -1022,10 +1117,22 @@ function WorkflowBuilder() {
     }
 
     // 7. Render Node
-    const hasRender = nodes.some((n) => n.type === 'renderNode');
-    if (hasRender) {
+    const renderNodes = nodes.filter((n) => n.type === 'renderNode');
+    if (renderNodes.length > 0) {
       setNodes((nds) => nds.map((n) => (n.type === 'renderNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      addLog('Bắt đầu quy trình biên tập và xuất bản...', 'info');
+      
+      let renderType = 'mp4';
+      renderNodes.forEach(n => {
+        if (n.data.subtype === 'social') {
+          addLog('Bắt đầu quy trình tự động phân phối mạng xã hội...', 'info');
+          renderType = 'social';
+        } else if (n.data.subtype === 'preview') {
+          addLog('Bắt đầu kết xuất bản nháp (Preview)...', 'info');
+          renderType = 'preview';
+        } else {
+          addLog('Bắt đầu quy trình biên tập và xuất bản...', 'info');
+        }
+      });
       await sleep(800);
 
       if (renderConfig.engine === 'ffmpeg') {
@@ -1058,7 +1165,12 @@ function WorkflowBuilder() {
 
       await sleep(1500);
       setNodes((nds) => nds.map((n) => (n.type === 'renderNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog(`Xuất bản thành công tệp video MP4 chất lượng cao bằng engine ${renderConfig.engine.toUpperCase()}!`, 'success');
+      
+      if (renderType === 'social') {
+         addLog(`Tải lên thành công! Video đã sẵn sàng trên nền tảng mạng xã hội.`, 'success');
+      } else {
+         addLog(`Xuất bản thành công tệp video MP4 chất lượng cao bằng engine ${renderConfig.engine.toUpperCase()}!`, 'success');
+      }
     }
 
     setIsRunning(false);
@@ -1666,6 +1778,127 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     }}
                   />
                 </div>
+
+                {['trigger', 'inputNode', 'docInput', 'urlInput', 'aiNode', 'visualNode', 'audioTTS', 'subtitle', 'renderNode'].includes(selectedNode.type || '') && (
+                  <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '12px' }}>
+                    <label className="form-label">Chức năng con (Sub-type):</label>
+                    <select 
+                      className="form-select"
+                      value={(selectedNode.data.subtype as string) || ''}
+                      onChange={(e) => {
+                        const newSubtype = e.target.value;
+                        setNodes(nds => nds.map(n => {
+                          if (n.id === selectedNode.id) {
+                            return { ...n, data: { ...n.data, subtype: newSubtype } };
+                          }
+                          return n;
+                        }));
+                        setSelectedNode(prev => prev ? { ...prev, data: { ...prev.data, subtype: newSubtype } } : null);
+                      }}
+                    >
+                      {selectedNode.type === 'trigger' && (
+                        <>
+                          <option value="manual">Chạy Thủ Công</option>
+                          <option value="schedule">Lên Lịch (Schedule)</option>
+                          <option value="webhook">Webhook URL</option>
+                          <option value="watchFolder">Theo Dõi Thư Mục</option>
+                          <option value="csvImport">Nhập CSV / Sheet</option>
+                        </>
+                      )}
+                      {['inputNode', 'docInput', 'urlInput'].includes(selectedNode.type || '') && (
+                        <>
+                          <option value="prompt">Text Prompt</option>
+                          <option value="url">URL Bài Viết / Blog</option>
+                          <option value="product">Dữ Liệu Sản Phẩm</option>
+                          <option value="upload">Tải Lên Media</option>
+                          <option value="stock">Thư Viện Stock</option>
+                        </>
+                      )}
+                      {selectedNode.type === 'aiNode' && (
+                        <>
+                          <option value="outline">Tạo Outline Kịch Bản</option>
+                          <option value="hook3s">Tạo Hook 3 Giây Đầu</option>
+                          <option value="expand">Phát Triển Kịch Bản</option>
+                          <option value="split">Phân Tách Cảnh</option>
+                          <option value="caption">Tạo Caption / Phụ Đề</option>
+                          <option value="translate">Dịch / Bản Địa Hóa</option>
+                        </>
+                      )}
+                      {selectedNode.type === 'visualNode' && (
+                        <>
+                          <option value="aiImage">Sinh Ảnh Minh Họa AI</option>
+                          <option value="stockSearch">Tìm Kiếm Stock Media</option>
+                          <option value="planner">Phân Cảnh Hình Ảnh</option>
+                          <option value="background">Tạo Ảnh Nền</option>
+                          <option value="avatar">Nhân Vật AI (Avatar)</option>
+                          <option value="brandKit">Bộ Thương Hiệu (Brand)</option>
+                        </>
+                      )}
+                      {selectedNode.type === 'audioTTS' && (
+                        <>
+                          <option value="tts">Text-to-Speech</option>
+                          <option value="clone">Nhái Giọng (Voice Clone)</option>
+                          <option value="bgMusic">Nhạc Nền (BG Music)</option>
+                          <option value="sfx">Hiệu Ứng Âm Thanh</option>
+                          <option value="normalization">Chuẩn Hóa Âm Thanh</option>
+                        </>
+                      )}
+                      {selectedNode.type === 'subtitle' && (
+                        <>
+                          <option value="timeline">Dựng Timeline Video</option>
+                          <option value="trim">Cắt Ghép (Trim / Cut)</option>
+                          <option value="transition">Hiệu Ứng Chuyển Cảnh</option>
+                          <option value="captionStyle">Kiểu Phụ Đề Chữ</option>
+                          <option value="watermark">Watermark / Logo</option>
+                          <option value="aspectRatio">Tỷ Lệ Khung Hình</option>
+                          <option value="template">Áp Dụng Template</option>
+                        </>
+                      )}
+                      {selectedNode.type === 'renderNode' && (
+                        <>
+                          <option value="preview">Render Preview</option>
+                          <option value="full">Render Full Video</option>
+                          <option value="mp4">Xuất Bản MP4</option>
+                          <option value="upload">Tải Video Lên Mây</option>
+                          <option value="social">Đăng Mạng Xã Hội</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                )}
+
+                {/* Trigger Specific Inputs */}
+                {selectedNode.type === 'trigger' && selectedNode.data.subtype === 'schedule' && (
+                  <div className="form-group">
+                    <label className="form-label">Lịch chạy (Cron timer):</label>
+                    <input type="text" className="form-input" defaultValue="0 8 * * *" placeholder="0 8 * * *" />
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Mỗi ngày vào 8:00 sáng</span>
+                  </div>
+                )}
+                {selectedNode.type === 'trigger' && selectedNode.data.subtype === 'webhook' && (
+                  <div className="form-group">
+                    <label className="form-label">Webhook URL:</label>
+                    <input type="text" className="form-input" value="https://api.hml.vn/hook/xyz" readOnly />
+                  </div>
+                )}
+
+                {/* Visual - Brand kit inputs */}
+                {selectedNode.type === 'visualNode' && selectedNode.data.subtype === 'brandKit' && (
+                  <div className="form-group">
+                    <label className="form-label">Logo thương hiệu:</label>
+                    <input type="file" className="form-input" />
+                    <label className="form-label" style={{ marginTop: '8px' }}>Màu sắc chủ đạo:</label>
+                    <input type="color" className="form-input" defaultValue="#1d4ed8" style={{ height: '40px', padding: '2px' }} />
+                  </div>
+                )}
+
+                {/* Audio - Background Music */}
+                {selectedNode.type === 'audioTTS' && selectedNode.data.subtype === 'bgMusic' && (
+                  <div className="form-group">
+                    <label className="form-label">Đường dẫn file nhạc nền:</label>
+                    <input type="text" className="form-input" defaultValue="assets/bg_lofi_chill.mp3" />
+                  </div>
+                )}
 
                 {/* Input Prompt Node */}
                 {selectedNode.type === 'inputNode' && (
