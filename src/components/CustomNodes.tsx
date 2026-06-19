@@ -1,4 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
+import { AlertTriangle, Code2 } from 'lucide-react';
 import { 
   Play, Settings, Cpu, Image, Film, FileText, Globe, Volume2, Type, Code,
   Calendar, Folder, Table, Music, Sliders, Eye, Send, Scissors
@@ -11,6 +12,8 @@ interface CustomNodeProps {
     status?: 'idle' | 'running' | 'success' | 'error';
     value?: string;
     subtype?: string;
+    errorMsg?: string;
+    advancedMode?: boolean;
   };
   selected?: boolean;
 }
@@ -40,6 +43,26 @@ function getIcon(name: string) {
   }
 }
 
+function NodeDecorators({ status, advancedMode, errorMsg }: { status?: string, advancedMode?: boolean, errorMsg?: string }) {
+  return (
+    <>
+      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
+      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
+      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      {status === 'error' && (
+        <div className="node-error-badge" title={errorMsg || 'Lỗi chưa xác định'} style={{ position: 'absolute', top: -8, right: -8, background: 'var(--error)', borderRadius: '50%', padding: '4px', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+          <AlertTriangle size={12} color="white" />
+        </div>
+      )}
+      {advancedMode && (
+        <div className="node-advanced-badge" title="Advanced Expression Mode" style={{ position: 'absolute', top: -8, left: -8, background: '#a855f7', borderRadius: '50%', padding: '4px', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+          <Code2 size={10} color="white" />
+        </div>
+      )}
+    </>
+  );
+}
+
 // 1. Trigger Node
 export function TriggerNode({ data, selected }: CustomNodeProps) {
   const status = data.status || 'idle';
@@ -57,9 +80,7 @@ export function TriggerNode({ data, selected }: CustomNodeProps) {
 
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
       
       <div className="node-header">
         <div className="node-icon-wrapper" style={{ backgroundColor: meta.color }}>
@@ -94,9 +115,7 @@ export function InputNode({ data, selected }: CustomNodeProps) {
 
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">
@@ -135,9 +154,7 @@ export function AINode({ data, selected }: CustomNodeProps) {
 
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">
@@ -176,9 +193,7 @@ export function VisualNode({ data, selected }: CustomNodeProps) {
 
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">
@@ -216,9 +231,7 @@ export function AudioTTSNode({ data, selected }: CustomNodeProps) {
 
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">
@@ -258,9 +271,7 @@ export function SubtitleNode({ data, selected }: CustomNodeProps) {
 
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">
@@ -298,9 +309,7 @@ export function RenderNode({ data, selected }: CustomNodeProps) {
 
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">
@@ -325,9 +334,7 @@ export function CodeNode({ data, selected }: CustomNodeProps) {
   const status = data.status || 'idle';
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">
@@ -353,9 +360,7 @@ export function CustomAINode({ data, selected }: CustomNodeProps) {
   const status = data.status || 'idle';
   return (
     <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
-      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
-      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
-      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+      <NodeDecorators status={status} advancedMode={data.advancedMode} errorMsg={data.errorMsg} />
 
       <Handle type="target" position={Position.Left} id="input" />
       <div className="node-header">

@@ -34,7 +34,8 @@ import {
   Plus,
   Save,
   Check,
-  Code
+  Code,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -1180,6 +1181,37 @@ function WorkflowBuilder() {
     addLog('Mẫu video đã được dựng xong hoàn hảo!', 'success');
   }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes, renderConfig, aspectRatio, codeValue, customAIPrompt, customAIModel]);
 
+  const testNode = async () => {
+    if (!selectedNode || isRunning) return;
+    addLog(`Đang kiểm thử Node: ${selectedNode.data.label}...`, 'info');
+    
+    // Set to running
+    setNodes(nds => nds.map(n => 
+      n.id === selectedNode.id ? { ...n, data: { ...n.data, status: 'running', errorMsg: undefined } } : n
+    ));
+    setSelectedNode(prev => prev ? { ...prev, data: { ...prev.data, status: 'running', errorMsg: undefined } } : null);
+    
+    // Simulate wait
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // Random fail (15% chance)
+    const isFail = Math.random() < 0.15;
+    if (isFail) {
+      const errorMsg = 'Lỗi kết nối API hoặc thiếu tham số cấu hình. Hãy kiểm tra lại.';
+      setNodes(nds => nds.map(n => 
+        n.id === selectedNode.id ? { ...n, data: { ...n.data, status: 'error', errorMsg } } : n
+      ));
+      setSelectedNode(prev => prev ? { ...prev, data: { ...prev.data, status: 'error', errorMsg } } : null);
+      addLog(`Kiểm thử thất bại: ${errorMsg}`, 'error');
+    } else {
+      setNodes(nds => nds.map(n => 
+        n.id === selectedNode.id ? { ...n, data: { ...n.data, status: 'success' } } : n
+      ));
+      setSelectedNode(prev => prev ? { ...prev, data: { ...prev.data, status: 'success' } } : null);
+      addLog('Kiểm thử Node thành công!', 'success');
+    }
+  };
+
   // Subtitle styling generator for preview screen (respects track visibility and mute)
   const getSubStyle = () => {
     if (!trackVisibility.subtitle || trackMutes.subtitle) {
@@ -1867,7 +1899,60 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                   </div>
                 )}
 
-                {/* Trigger Specific Inputs */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>Chế độ nâng cao (Expression):</label>
+                  <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px' }}>
+                    <input 
+                      type="checkbox" 
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                      checked={!!selectedNode.data.advancedMode}
+                      onChange={(e) => {
+                        const isAdv = e.target.checked;
+                        setNodes(nds => nds.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, advancedMode: isAdv } } : n));
+                        setSelectedNode(prev => prev ? { ...prev, data: { ...prev.data, advancedMode: isAdv } } : null);
+                      }}
+                    />
+                    <span className="slider round" style={{ 
+                      position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
+                      backgroundColor: selectedNode.data.advancedMode ? '#a855f7' : '#ccc', borderRadius: '20px', transition: '.4s' 
+                    }}>
+                      <span style={{
+                        position: 'absolute', content: '""', height: '16px', width: '16px', left: selectedNode.data.advancedMode ? '18px' : '2px',
+                        bottom: '2px', backgroundColor: 'white', borderRadius: '50%', transition: '.4s'
+                      }} />
+                    </span>
+                  </label>
+                </div>
+
+                {selectedNode.data.status === 'error' && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '6px', padding: '12px', marginBottom: '16px' }}>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#b91c1c', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <AlertTriangle size={14} /> Node gặp sự cố
+                    </p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#991b1b' }}>{(selectedNode.data.errorMsg as string) || 'Vui lòng kiểm tra lại cấu hình thông số của Node này.'}</p>
+                  </div>
+                )}
+
+                {selectedNode.data.advancedMode ? (
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label className="form-label" style={{ color: '#a855f7' }}>Advanced Expression (JS):</label>
+                    <textarea 
+                      className="form-textarea" 
+                      rows={6}
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', background: '#1e1e1e', color: '#d4d4d4', border: '1px solid #333' }}
+                      value={(selectedNode.data.advancedExpression as string) || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNodes(nds => nds.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, advancedExpression: val } } : n));
+                        setSelectedNode(prev => prev ? { ...prev, data: { ...prev.data, advancedExpression: val } } : null);
+                      }}
+                      placeholder="{{ $trigger.data.url }}"
+                    />
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sử dụng {'{{ variable }}'} để trỏ đến dữ liệu động.</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Trigger Specific Inputs */}
                 {selectedNode.type === 'trigger' && selectedNode.data.subtype === 'schedule' && (
                   <div className="form-group">
                     <label className="form-label">Lịch chạy (Cron timer):</label>
@@ -2249,6 +2334,22 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     )}
                   </>
                 )}
+
+                  </>
+                )}
+
+
+                <div style={{ marginTop: '24px', borderTop: '1px dashed var(--border-dark)', paddingTop: '16px', paddingBottom: '16px' }}>
+                  <button 
+                    className="btn" 
+                    style={{ width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                    onClick={testNode}
+                    disabled={isRunning || selectedNode.data.status === 'running'}
+                  >
+                    <Play size={14} />
+                    {selectedNode.data.status === 'running' ? 'Đang chạy...' : 'Kiểm thử Node này (Test Node)'}
+                  </button>
+                </div>
 
                 {/* Active scene configurations */}
                 {workflowCompleted && (
