@@ -1610,22 +1610,21 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               Nodes Palette
             </div>
             
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
               <div className="palette-category">
                 <Plus size={14} /> Lập lịch
               </div>
-              <div className="palette-category">
-                <FileText size={14} /> Nhập liệu
-              </div>
-              <div className="palette-category" style={{ backgroundColor: 'var(--bg-app)' }}>
-                <Cpu size={14} /> Quy trình
-              </div>
-              
-              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '0' }}>
+              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'trigger')}>
                   <div className="node-icon-wrapper color-trigger"><Play size={14} fill="white" /></div>
                   <div><div className="node-palette-name">Trigger</div><div className="node-palette-desc">Kích hoạt luồng</div></div>
                 </div>
+              </div>
+
+              <div className="palette-category">
+                <FileText size={14} /> Nhập liệu
+              </div>
+              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'docInput')}>
                   <div className="node-icon-wrapper" style={{ backgroundColor: '#10b981' }}><FileText size={14} /></div>
                   <div><div className="node-palette-name">Tài Liệu</div><div className="node-palette-desc">Nhận tệp văn bản</div></div>
@@ -1634,6 +1633,12 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                   <div className="node-icon-wrapper" style={{ backgroundColor: '#3b82f6' }}><Globe size={14} /></div>
                   <div><div className="node-palette-name">Liên Kết Blog</div><div className="node-palette-desc">Nhập địa chỉ URL</div></div>
                 </div>
+              </div>
+
+              <div className="palette-category" style={{ backgroundColor: 'var(--bg-app)' }}>
+                <Cpu size={14} /> Xử lý
+              </div>
+              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'aiNode')}>
                   <div className="node-icon-wrapper color-ai"><Cpu size={14} /></div>
                   <div><div className="node-palette-name">AI Script</div><div className="node-palette-desc">Biên tập kịch bản</div></div>
@@ -1650,6 +1655,12 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                   <div className="node-icon-wrapper" style={{ backgroundColor: '#f43f5e' }}><Type size={14} /></div>
                   <div><div className="node-palette-name">Phụ Đề</div><div className="node-palette-desc">Thêm phụ đề chữ chạy</div></div>
                 </div>
+              </div>
+
+              <div className="palette-category">
+                <Code size={14} /> Tiện ích
+              </div>
+              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'codeNode')}>
                   <div className="node-icon-wrapper" style={{ backgroundColor: '#097969' }}><Code size={14} /></div>
                   <div><div className="node-palette-name">Lập Trình Code</div><div className="node-palette-desc">Nhúng mã JS xử lý</div></div>
@@ -1658,6 +1669,12 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                   <div className="node-icon-wrapper" style={{ backgroundColor: '#df6330' }}><Cpu size={14} /></div>
                   <div><div className="node-palette-name">Thẻ AI Prompt</div><div className="node-palette-desc">Nhúng AI prompt tùy chọn</div></div>
                 </div>
+              </div>
+
+              <div className="palette-category">
+                <Film size={14} /> Xuất bản
+              </div>
+              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '24px' }}>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'renderNode')}>
                   <div className="node-icon-wrapper color-render"><Film size={14} /></div>
                   <div><div className="node-palette-name">Xuất Bản</div><div className="node-palette-desc">Xuất video MP4</div></div>
