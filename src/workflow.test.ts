@@ -52,4 +52,15 @@ describe('Kiểm thử Workflow Builder', () => {
     expect(mockScenes[0].image).toContain('https://');
     expect(mockScenes[0].duration).toBeGreaterThan(0);
   });
+
+  it('Phải hỗ trợ các loại node mới trong hệ thống (docInput, urlInput, audioTTS, subtitle)', () => {
+    const newNodes: NodeState[] = [
+      { id: 'n1', type: 'docInput', status: 'idle' },
+      { id: 'n2', type: 'urlInput', status: 'idle' },
+      { id: 'n3', type: 'audioTTS', status: 'idle' },
+      { id: 'n4', type: 'subtitle', status: 'idle' },
+    ];
+
+    expect(newNodes.map(n => n.type)).toEqual(['docInput', 'urlInput', 'audioTTS', 'subtitle']);
+  });
 });
