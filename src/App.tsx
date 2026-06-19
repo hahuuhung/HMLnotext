@@ -31,11 +31,14 @@ import {
   Eye,
   EyeOff,
   VolumeX,
-  Plus,
-  Save,
   Check,
   Code,
-  AlertTriangle
+  AlertTriangle,
+  Grid,
+  Layers,
+  HelpCircle,
+  Save,
+  Plus
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -127,6 +130,7 @@ interface Project {
 }
 
 function WorkflowBuilder() {
+  const [language, setLanguage] = useState<'vi' | 'en'>('vi');
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = localStorage.getItem('hml_projects');
     if (saved) {
@@ -1591,31 +1595,33 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
       {/* Main Workspace (conditional rendering based on editorMode) */}
       {editorMode === 'workflow' ? (
         <div className="workspace-container">
-          {/* Left Sidebar */}
-          <div className="sidebar-left" style={{ gap: '16px' }}>
-            <div style={{ padding: '16px 20px 0 20px' }}>
-              <div className="sidebar-header" style={{ padding: 0, border: 'none', marginBottom: '8px' }}>
-                Mẫu Thiết Kế (Templates)
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('prompt')}>
-                  <Type size={14} className="color-ai" />
-                  Prompt sang Video
-                </button>
-                <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('doc')}>
-                  <FileText size={14} style={{ color: '#10b981' }} />
-                  Tài liệu sang Video
-                </button>
-                <button className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px' }} onClick={() => loadTemplate('blog')}>
-                  <Globe size={14} style={{ color: '#3b82f6' }} />
-                  Blog sang Social Video
-                </button>
-              </div>
+          {/* Slim Sidebar Menu */}
+          <div className="slim-sidebar">
+            <div className="slim-icon active" title="Mẫu Thiết Kế"><Grid size={20} /></div>
+            <div className="slim-icon" title="Thư viện Media"><Layers size={20} /></div>
+            <div className="slim-icon" style={{ marginTop: 'auto' }}><HelpCircle size={20} /></div>
+          </div>
+          
+          <div className="sidebar-left">
+            <div className="sidebar-header">
+              Nút Quy trình
             </div>
-
+            <div className="sidebar-subtitle">
+              Nodes Palette
+            </div>
+            
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div className="sidebar-header">Thư viện Node</div>
-              <div className="node-list" style={{ paddingTop: '8px' }}>
+              <div className="palette-category">
+                <Plus size={14} /> Lập lịch
+              </div>
+              <div className="palette-category">
+                <FileText size={14} /> Nhập liệu
+              </div>
+              <div className="palette-category" style={{ backgroundColor: 'var(--bg-app)' }}>
+                <Cpu size={14} /> Quy trình
+              </div>
+              
+              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '0' }}>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'trigger')}>
                   <div className="node-icon-wrapper color-trigger"><Play size={14} fill="white" /></div>
                   <div><div className="node-palette-name">Trigger</div><div className="node-palette-desc">Kích hoạt luồng</div></div>
@@ -1663,9 +1669,14 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           {/* Center Canvas */}
           <div 
             className="canvas-wrapper"
+            style={{ borderRadius: '16px', margin: '8px 0', border: '1px solid var(--border-dark)', overflow: 'hidden' }}
             onDragOver={onDragOver}
             onDrop={onDrop}
           >
+            <div style={{ position: 'absolute', top: '16px', left: '20px', zIndex: 10 }}>
+              <h2 style={{ fontSize: '18px', margin: 0 }}>Vùng thiết kế</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Powered by React-Flow style graphs</p>
+            </div>
             {/* Canvas floating toolbar */}
             <div className="canvas-toolbar">
               <div style={{ position: 'relative' }}>
@@ -1758,16 +1769,45 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           {/* Right Sidebar - Inspector */}
           <div className="sidebar-right">
             <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Bảng Thuộc Tính</span>
-              {selectedNode && (
-                <button 
-                  onClick={deleteNode}
-                  style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer' }}
-                  title="Xóa node"
+              <span>Bảng điều khiển</span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <select 
+                  style={{ border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 4px', fontSize: '11px', outline: 'none' }}
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as 'vi' | 'en')}
                 >
-                  <Trash2 size={16} />
+                  <option value="vi">Tiếng Việt</option>
+                  <option value="en">English</option>
+                </select>
+                <button 
+                  onClick={() => setSelectedNode(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px' }}
+                  title="Đóng bảng"
+                >
+                  ✕
                 </button>
-              )}
+              </div>
+            </div>
+            
+            {/* Cấu hình Project Selector bên thanh phải */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-dark)', backgroundColor: 'var(--bg-app)' }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <Save size={14} style={{ color: '#10b981' }} /> Lưu trữ Dự án
+              </label>
+              <select 
+                className="form-select" 
+                style={{ width: '100%', height: '36px', padding: '0 12px', fontSize: '13px' }}
+                value={activeProjectId} 
+                onChange={(e) => switchProject(e.target.value)}
+              >
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button className="btn" style={{ flex: 1, fontSize: '12px', height: '32px' }} onClick={createNewProject}>+ Mới</button>
+                <button className="btn" style={{ flex: 1, fontSize: '12px', height: '32px', color: 'var(--error)' }} onClick={() => deleteProject(activeProjectId)} disabled={projects.length <= 1}>Xóa</button>
+              </div>
             </div>
             
             {!selectedNode ? (
@@ -2339,16 +2379,35 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                 )}
 
 
-                <div style={{ marginTop: '24px', borderTop: '1px dashed var(--border-dark)', paddingTop: '16px', paddingBottom: '16px' }}>
+                <div style={{ marginTop: '24px', borderTop: '1px dashed var(--border-dark)', paddingTop: '16px', paddingBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <button 
-                    className="btn" 
-                    style={{ width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
-                    onClick={testNode}
-                    disabled={isRunning || selectedNode.data.status === 'running'}
+                    className="btn btn-apply" 
+                    onClick={() => {
+                      addLog('Đã lưu cấu hình Node thành công', 'success');
+                      setSelectedNode(null);
+                    }}
                   >
-                    <Play size={14} />
-                    {selectedNode.data.status === 'running' ? 'Đang chạy...' : 'Kiểm thử Node này (Test Node)'}
+                    Áp dụng
                   </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="btn" 
+                      style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                      onClick={testNode}
+                      disabled={isRunning || selectedNode.data.status === 'running'}
+                    >
+                      <Play size={14} />
+                      {selectedNode.data.status === 'running' ? 'Đang chạy' : 'Kiểm thử Node'}
+                    </button>
+                    <button 
+                      className="btn" 
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--error-light)', color: 'var(--error)', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0 12px' }}
+                      onClick={deleteNode}
+                      title="Xóa Node này"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Active scene configurations */}

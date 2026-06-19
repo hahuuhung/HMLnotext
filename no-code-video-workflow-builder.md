@@ -7,11 +7,13 @@ Xây dựng ứng dụng cho phép người dùng không biết code tạo video
 ## 2. Phạm vi MVP
 
 ### Người dùng mục tiêu
+
 - Creator cá nhân cần làm video ngắn từ prompt/bài viết/sản phẩm.
 - Team marketing cần sản xuất video hàng loạt từ template.
 - Agency cần quy trình video có thể tái sử dụng, lưu version và render nền.
 
 ### MVP cần có
+
 1. Workspace/project để quản lý video.
 2. Canvas workflow dạng node như n8n.
 3. Node palette phân loại: Trigger, Input, AI, Asset, Audio, Edit, Render, Publish.
@@ -26,6 +28,7 @@ Xây dựng ứng dụng cho phép người dùng không biết code tạo video
 ## 3. Kiến trúc đề xuất
 
 ### Frontend
+
 - Web: Next.js + React + TypeScript.
 - Desktop: Tauri hoặc Electron dùng chung core UI với web.
 - Canvas: React Flow hoặc LiteGraph.js.
@@ -33,6 +36,7 @@ Xây dựng ứng dụng cho phép người dùng không biết code tạo video
 - Timeline preview: custom React component hoặc Remotion preview nếu dùng Remotion.
 
 ### Backend
+
 - API: NestJS hoặc Fastify + TypeScript.
 - Workflow engine: engine riêng chạy DAG, có validate dependency, retry, logging.
 - Queue: Redis + BullMQ.
@@ -41,7 +45,9 @@ Xây dựng ứng dụng cho phép người dùng không biết code tạo video
 - Worker render: Node worker hoặc Python worker tùy engine render.
 
 ### Render engine
+
 Ưu tiên MVP:
+
 - FFmpeg làm core render: ghép ảnh/video, voice-over, subtitle, transition, watermark, resize.
 - Remotion nếu cần template phức tạp, animation dựa trên React component.
 - Có thể kết hợp: Remotion tạo scene phức tạp, FFmpeg assemble final video.
@@ -49,6 +55,7 @@ Xây dựng ứng dụng cho phép người dùng không biết code tạo video
 ## 4. Mô hình workflow
 
 Workflow là DAG gồm:
+
 - Node: một bước xử lý, ví dụ generate script, search stock, generate voice.
 - Edge: kết nối output của node này sang input node khác.
 - Execution: mỗi lần chạy workflow.
@@ -59,6 +66,7 @@ Workflow là DAG gồm:
 ## 5. Node catalog MVP
 
 ### Trigger
+
 - Manual run.
 - Schedule.
 - Webhook.
@@ -66,6 +74,7 @@ Workflow là DAG gồm:
 - Import từ CSV/Google Sheet.
 
 ### Input
+
 - Text prompt.
 - URL bài viết/blog.
 - Product data.
@@ -73,6 +82,7 @@ Workflow là DAG gồm:
 - Stock library.
 
 ### AI Script
+
 - Generate outline.
 - Generate hook 3 giây đầu.
 - Expand prompt thành kịch bản.
@@ -81,6 +91,7 @@ Workflow là DAG gồm:
 - Translate/localize script.
 
 ### Visual
+
 - AI image generation.
 - Stock image/video search.
 - Scene planner.
@@ -89,6 +100,7 @@ Workflow là DAG gồm:
 - Brand kit: logo, màu, font.
 
 ### Audio
+
 - Text-to-speech.
 - Voice clone nếu được phép.
 - Background music.
@@ -96,6 +108,7 @@ Workflow là DAG gồm:
 - Audio normalization.
 
 ### Editing
+
 - Timeline builder.
 - Trim/cut.
 - Transition.
@@ -105,6 +118,7 @@ Workflow là DAG gồm:
 - Template áp dụng cho nhiều video.
 
 ### Render & Export
+
 - Preview render.
 - Full render.
 - Export MP4.
@@ -114,6 +128,7 @@ Workflow là DAG gồm:
 ## 6. Trải nghiệm giao diện
 
 ### Layout chính
+
 - Bên trái: node palette và template.
 - Giữa: workflow canvas kéo thả.
 - Bên phải: inspector cấu hình node.
@@ -121,6 +136,7 @@ Workflow là DAG gồm:
 - Trên cùng: run workflow, preview, export, save, version.
 
 ### UX no-code
+
 - Mỗi node có preset đơn giản.
 - Input dạng form, dropdown, upload, prompt box.
 - Có chế độ advanced expression cho người dùng nâng cao nhưng không bắt buộc.
@@ -139,7 +155,8 @@ Workflow là DAG gồm:
 8. Node caption tạo subtitle.
 9. Node editor dựng timeline.
 10. Node render tạo MP4.
-11. Người dùng preview, chỉnh sửa, export.
+11. Người dùng preview, chỉnh sửa, export đa kênh ( youtube, tiktok,facebook...).
+12. Thêm Luồng với các loại input khác nhau
 
 ## 8. API/backend modules
 
@@ -167,6 +184,7 @@ Workflow là DAG gồm:
 ## 10. Lộ trình triển khai
 
 ### Phase 1: Prototype
+
 - Canvas workflow kéo thả.
 - Node registry cơ bản.
 - Prompt-to-script.
@@ -175,6 +193,7 @@ Workflow là DAG gồm:
 - Render MP4 đơn giản bằng FFmpeg.
 
 ### Phase 2: MVP usable
+
 - Upload asset.
 - TTS.
 - Caption.
@@ -184,12 +203,14 @@ Workflow là DAG gồm:
 - Save/load workflow.
 
 ### Phase 3: Desktop + local render
+
 - Đóng gói desktop app.
 - Hỗ trợ local folder watch.
 - Render bằng FFmpeg local.
 - Sync project với cloud nếu cần.
 
 ### Phase 4: Production
+
 - Multi-user workspace.
 - Billing/quota.
 - Provider failover.
