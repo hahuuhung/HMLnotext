@@ -33,7 +33,8 @@ import {
   VolumeX,
   Plus,
   Save,
-  Check
+  Check,
+  Code
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -44,7 +45,9 @@ import {
   DocInputNode,
   UrlInputNode,
   AudioTTSNode,
-  SubtitleNode
+  SubtitleNode,
+  CodeNode,
+  CustomAINode
 } from './components/CustomNodes';
 
 // Define custom node types
@@ -58,6 +61,8 @@ const nodeTypes = {
   urlInput: UrlInputNode,
   audioTTS: AudioTTSNode,
   subtitle: SubtitleNode,
+  codeNode: CodeNode,
+  customAINode: CustomAINode,
 };
 
 interface LogEntry {
@@ -117,6 +122,9 @@ interface Project {
   transitionSpeed: string;
   workflowCompleted: boolean;
   renderConfig?: RenderConfig;
+  codeValue?: string;
+  customAIPrompt?: string;
+  customAIModel?: string;
 }
 
 function WorkflowBuilder() {
@@ -235,6 +243,10 @@ function WorkflowBuilder() {
   const [aspectRatio, setAspectRatio] = useState(initialProject.aspectRatio);
   const [transitionSpeed, setTransitionSpeed] = useState(initialProject.transitionSpeed);
 
+  const [codeValue, setCodeValue] = useState(initialProject.codeValue || '// Viết mã JS xử lý tại đây\nfunction process(scenes) {\n  console.log(\'Xử lý kịch bản\');\n  return scenes;\n}');
+  const [customAIPrompt, setCustomAIPrompt] = useState(initialProject.customAIPrompt || 'Hãy viết lại lời dẫn cho kịch bản ngắn gọn, dí dỏm hơn.');
+  const [customAIModel, setCustomAIModel] = useState(initialProject.customAIModel || 'gpt-4o');
+
   const [renderConfig, setRenderConfig] = useState<RenderConfig>(() => {
     return initialProject.renderConfig || {
       engine: 'ffmpeg',
@@ -289,7 +301,10 @@ function WorkflowBuilder() {
           aspectRatio,
           transitionSpeed,
           workflowCompleted,
-          renderConfig
+          renderConfig,
+          codeValue,
+          customAIPrompt,
+          customAIModel
         };
       }
       return proj;
@@ -312,7 +327,10 @@ function WorkflowBuilder() {
     aspectRatio,
     transitionSpeed,
     workflowCompleted,
-    renderConfig
+    renderConfig,
+    codeValue,
+    customAIPrompt,
+    customAIModel
   ]);
 
   useEffect(() => {
@@ -360,6 +378,9 @@ function WorkflowBuilder() {
       fps: 30,
       concurrency: 4
     });
+    setCodeValue(target.codeValue || '// Viết mã JS xử lý tại đây\nfunction process(scenes) {\n  console.log(\'Xử lý kịch bản\');\n  return scenes;\n}');
+    setCustomAIPrompt(target.customAIPrompt || 'Hãy viết lại lời dẫn cho kịch bản ngắn gọn, dí dỏm hơn.');
+    setCustomAIModel(target.customAIModel || 'gpt-4o');
     
     addLog(`Đã chuyển sang dự án: "${target.name}"`, 'success');
   };
@@ -466,7 +487,10 @@ function WorkflowBuilder() {
         template: 'MainComposition',
         fps: 30,
         concurrency: 4
-      }
+      },
+      codeValue: '// Viết mã JS xử lý tại đây\nfunction process(scenes) {\n  console.log(\'Xử lý kịch bản\');\n  return scenes;\n}',
+      customAIPrompt: 'Hãy viết lại lời dẫn cho kịch bản ngắn gọn, dí dỏm hơn.',
+      customAIModel: 'gpt-4o'
     };
  
     setProjects(prev => [...prev, newProj]);
@@ -492,6 +516,9 @@ function WorkflowBuilder() {
       if (newProj.renderConfig) {
         setRenderConfig(newProj.renderConfig);
       }
+      setCodeValue(newProj.codeValue || '');
+      setCustomAIPrompt(newProj.customAIPrompt || '');
+      setCustomAIModel(newProj.customAIModel || '');
     }, 50);
  
     addLog(`Đã tạo dự án mới: "${name}"`, 'success');
@@ -765,10 +792,12 @@ function WorkflowBuilder() {
         if (node.type === 'inputNode') return { ...node, data: { ...node.data, value: promptValue } };
         if (node.type === 'docInput') return { ...node, data: { ...node.data, value: docValue } };
         if (node.type === 'urlInput') return { ...node, data: { ...node.data, value: urlValue } };
+        if (node.type === 'codeNode') return { ...node, data: { ...node.data, value: codeValue } };
+        if (node.type === 'customAINode') return { ...node, data: { ...node.data, value: customAIPrompt } };
         return node;
       })
     );
-  }, [promptValue, docValue, urlValue, setNodes]);
+  }, [promptValue, docValue, urlValue, codeValue, customAIPrompt, setNodes]);
 
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
     const time = new Date().toTimeString().split(' ')[0];
@@ -807,6 +836,8 @@ function WorkflowBuilder() {
       visualNode: 'Visual Node',
       audioTTS: 'Lồng Tiếng AI',
       subtitle: 'Phụ Đề',
+      codeNode: 'Lập Trình Code',
+      customAINode: 'Thẻ AI Prompt',
       renderNode: 'Xuất Bản',
     };
 
@@ -823,7 +854,7 @@ function WorkflowBuilder() {
       data: { 
         label: typeLabels[type] || 'Node Mới',
         status: 'idle',
-        value: type === 'inputNode' ? promptValue : type === 'docInput' ? docValue : type === 'urlInput' ? urlValue : undefined
+        value: type === 'inputNode' ? promptValue : type === 'docInput' ? docValue : type === 'urlInput' ? urlValue : type === 'codeNode' ? codeValue : type === 'customAINode' ? customAIPrompt : undefined
       },
     };
 
@@ -872,6 +903,8 @@ function WorkflowBuilder() {
         visualNode: 'Visual Node',
         audioTTS: 'Lồng Tiếng AI',
         subtitle: 'Phụ Đề',
+        codeNode: 'Lập Trình Code',
+        customAINode: 'Thẻ AI Prompt',
         renderNode: 'Xuất Bản',
       };
 
@@ -882,14 +915,14 @@ function WorkflowBuilder() {
         data: { 
           label: typeLabels[type] || 'Node Mới',
           status: 'idle',
-          value: type === 'inputNode' ? promptValue : type === 'docInput' ? docValue : type === 'urlInput' ? urlValue : undefined
+          value: type === 'inputNode' ? promptValue : type === 'docInput' ? docValue : type === 'urlInput' ? urlValue : type === 'codeNode' ? codeValue : type === 'customAINode' ? customAIPrompt : undefined
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
       addLog(`Đã thêm Node ${typeLabels[type]} vào Canvas`, 'success');
     },
-    [nodes, promptValue, docValue, urlValue, setNodes, addLog]
+    [nodes, promptValue, docValue, urlValue, codeValue, customAIPrompt, setNodes, addLog]
   );
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
@@ -968,6 +1001,26 @@ function WorkflowBuilder() {
       addLog('Đã đồng bộ thời gian phụ đề và khung hình.', 'success');
     }
 
+    // 6b. Code Node
+    const hasCodeNode = nodes.some((n) => n.type === 'codeNode');
+    if (hasCodeNode) {
+      setNodes((nds) => nds.map((n) => (n.type === 'codeNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
+      addLog('Đang chạy mã script lập trình JavaScript tùy chỉnh...', 'info');
+      await sleep(1200);
+      addLog('Thiết lập thành công bộ xử lý trung gian custom JS script.', 'success');
+      setNodes((nds) => nds.map((n) => (n.type === 'codeNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
+    }
+
+    // 6c. Custom AI Prompt Node
+    const hasCustomAINode = nodes.some((n) => n.type === 'customAINode');
+    if (hasCustomAINode) {
+      setNodes((nds) => nds.map((n) => (n.type === 'customAINode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
+      addLog(`Đang gửi Custom Prompt tới mô hình AI: ${customAIModel.toUpperCase()}...`, 'info');
+      await sleep(1500);
+      addLog('AI đã phản hồi và dịch chuyển nội dung thành công.', 'success');
+      setNodes((nds) => nds.map((n) => (n.type === 'customAINode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
+    }
+
     // 7. Render Node
     const hasRender = nodes.some((n) => n.type === 'renderNode');
     if (hasRender) {
@@ -1013,7 +1066,7 @@ function WorkflowBuilder() {
     setCurrentTime(0);
     setActiveTab('timeline');
     addLog('Mẫu video đã được dựng xong hoàn hảo!', 'success');
-  }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes, renderConfig, aspectRatio]);
+  }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes, renderConfig, aspectRatio, codeValue, customAIPrompt, customAIModel]);
 
   // Subtitle styling generator for preview screen (respects track visibility and mute)
   const getSubStyle = () => {
@@ -1447,6 +1500,14 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                   <div className="node-icon-wrapper" style={{ backgroundColor: '#f43f5e' }}><Type size={14} /></div>
                   <div><div className="node-palette-name">Phụ Đề</div><div className="node-palette-desc">Thêm phụ đề chữ chạy</div></div>
                 </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'codeNode')}>
+                  <div className="node-icon-wrapper" style={{ backgroundColor: '#097969' }}><Code size={14} /></div>
+                  <div><div className="node-palette-name">Lập Trình Code</div><div className="node-palette-desc">Nhúng mã JS xử lý</div></div>
+                </div>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'customAINode')}>
+                  <div className="node-icon-wrapper" style={{ backgroundColor: '#df6330' }}><Cpu size={14} /></div>
+                  <div><div className="node-palette-name">Thẻ AI Prompt</div><div className="node-palette-desc">Nhúng AI prompt tùy chọn</div></div>
+                </div>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'renderNode')}>
                   <div className="node-icon-wrapper color-render"><Film size={14} /></div>
                   <div><div className="node-palette-name">Xuất Bản</div><div className="node-palette-desc">Xuất video MP4</div></div>
@@ -1504,6 +1565,14 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     <button className="quick-add-item" onClick={() => { addNodeDirectly('subtitle'); setIsAddDropdownOpen(false); }}>
                       <div className="quick-add-icon" style={{ backgroundColor: '#f43f5e' }}><Type size={10} /></div>
                       Phụ Đề
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('codeNode'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#097969' }}><Code size={10} /></div>
+                      Lập Trình Code
+                    </button>
+                    <button className="quick-add-item" onClick={() => { addNodeDirectly('customAINode'); setIsAddDropdownOpen(false); }}>
+                      <div className="quick-add-icon" style={{ backgroundColor: '#df6330' }}><Cpu size={10} /></div>
+                      Thẻ AI Prompt
                     </button>
                     <button className="quick-add-item" onClick={() => { addNodeDirectly('renderNode'); setIsAddDropdownOpen(false); }}>
                       <div className="quick-add-icon" style={{ backgroundColor: '#d946ef' }}><Film size={10} /></div>
@@ -1713,6 +1782,47 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         value={subColor} 
                         onChange={(e) => setSubColor(e.target.value)} 
                       />
+                    </div>
+                  </>
+                )}
+
+                {/* Code Node */}
+                {selectedNode.type === 'codeNode' && (
+                  <div className="form-group">
+                    <label className="form-label">Mã nguồn JavaScript xử lý:</label>
+                    <textarea 
+                      className="form-textarea" 
+                      rows={10}
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+                      value={codeValue}
+                      onChange={(e) => setCodeValue(e.target.value)}
+                    />
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      ℹ️ Bạn có thể nhúng mã script JavaScript tùy chỉnh để thao tác, trích lọc dữ liệu phân cảnh, hoặc điều khiển luồng dữ liệu trung gian.
+                    </span>
+                  </div>
+                )}
+
+                {/* Custom AI Prompt Node */}
+                {selectedNode.type === 'customAINode' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Prompt AI tùy chỉnh:</label>
+                      <textarea 
+                        className="form-textarea" 
+                        rows={4}
+                        value={customAIPrompt}
+                        onChange={(e) => setCustomAIPrompt(e.target.value)}
+                        placeholder="VD: Dịch lời dẫn sang Tiếng Anh..."
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Mô hình AI:</label>
+                      <select className="form-select" value={customAIModel} onChange={(e) => setCustomAIModel(e.target.value)}>
+                        <option value="gpt-4o">GPT-4o (Đa nhiệm)</option>
+                        <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (Sáng tạo)</option>
+                        <option value="gemini-pro">Gemini Pro (Tốc độ)</option>
+                      </select>
                     </div>
                   </>
                 )}

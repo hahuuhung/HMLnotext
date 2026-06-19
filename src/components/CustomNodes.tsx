@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { Play, Settings, Cpu, Image, Film, FileText, Globe, Volume2, Type } from 'lucide-react';
+import { Play, Settings, Cpu, Image, Film, FileText, Globe, Volume2, Type, Code } from 'lucide-react';
 
 interface CustomNodeProps {
   data: {
@@ -252,6 +252,62 @@ export function SubtitleNode({ data, selected }: CustomNodeProps) {
         <p style={{ fontWeight: 500 }}>Kiểu hiển thị:</p>
         <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
           {status === 'success' ? 'Phụ đề nghệ thuật' : 'Chờ kịch bản...'}
+        </p>
+      </div>
+      <Handle type="source" position={Position.Right} id="output" />
+    </div>
+  );
+}
+
+// 10. Lập trình Code Node (Nhúng thẻ lập trình JS)
+export function CodeNode({ data, selected }: CustomNodeProps) {
+  const status = data.status || 'idle';
+  return (
+    <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
+      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
+      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
+      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+
+      <Handle type="target" position={Position.Left} id="input" />
+      <div className="node-header">
+        <div className="node-icon-wrapper" style={{ backgroundColor: '#097969' }}>
+          <Code size={16} />
+        </div>
+        <div className="node-title">Lập Trình Code</div>
+        <span className="node-badge" style={{ backgroundColor: '#e8f5e9', color: '#1b5e20' }}>JS</span>
+      </div>
+      <div className="node-body">
+        <p style={{ fontWeight: 500 }}>JavaScript Script:</p>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {data.value || 'console.log("HML");'}
+        </p>
+      </div>
+      <Handle type="source" position={Position.Right} id="output" />
+    </div>
+  );
+}
+
+// 11. Custom AI Prompt Node (Nhúng thẻ AI tùy chọn)
+export function CustomAINode({ data, selected }: CustomNodeProps) {
+  const status = data.status || 'idle';
+  return (
+    <div className={`custom-node status-${status} ${selected ? 'selected' : ''}`}>
+      <div className="node-status-dot running" style={{ display: status === 'running' ? 'block' : 'none' }} />
+      <div className="node-status-dot success" style={{ display: status === 'success' ? 'block' : 'none' }} />
+      <div className="node-status-dot error" style={{ display: status === 'error' ? 'block' : 'none' }} />
+
+      <Handle type="target" position={Position.Left} id="input" />
+      <div className="node-header">
+        <div className="node-icon-wrapper" style={{ backgroundColor: '#df6330' }}>
+          <Cpu size={16} />
+        </div>
+        <div className="node-title">Thẻ AI Prompt</div>
+        <span className="node-badge" style={{ backgroundColor: '#fff3e0', color: '#e65100' }}>AI Prompt</span>
+      </div>
+      <div className="node-body">
+        <p style={{ fontWeight: 500 }}>Prompt Custom:</p>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {data.value || 'Chưa thiết lập'}
         </p>
       </div>
       <Handle type="source" position={Position.Right} id="output" />
