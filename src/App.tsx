@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -79,8 +79,8 @@ function WorkflowBuilder() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'logs' | 'agents'>('timeline');
   const [logs, setLogs] = useState<LogEntry[]>([
-    { time: '13:54:07', type: 'info', message: 'Khởi tạo Workspace nâng cao thành công.' },
-    { time: '13:54:08', type: 'info', message: 'Hệ thống AI Agent Orchestration sẵn sàng.' }
+    { time: '14:02:07', type: 'info', message: 'Mở rộng tính năng Timeline CapCut.' },
+    { time: '14:02:08', type: 'info', message: 'Hệ thống đồng bộ video và Playhead đã sẵn sàng.' }
   ]);
   const [agentLogs, setAgentLogs] = useState<AgentMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -109,9 +109,9 @@ function WorkflowBuilder() {
   // Preview Playback States
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
-  const playIntervalRef = useRef<any>(null);
+  const [currentTime, setCurrentTime] = useState(0); // in seconds
 
-  // Mock Scenes Data (generated upon successful workflow execution)
+  // Mock Scenes Data
   const mockScenes: Scene[] = [
     {
       id: 1,
@@ -136,11 +136,75 @@ function WorkflowBuilder() {
     },
   ];
 
+  // Calculate total duration based on selected scenes
+  const totalDuration = mockScenes.slice(0, sceneCount).reduce((acc, s) => acc + s.duration, 0);
+  const timelineScale = 50; // pixels per second (width of 1s is 50px)
+
+  // Synchronized Playhead and Preview Screen
+  useEffect(() => {
+    let startTimestamp: number;
+    let animFrameId: number = 0;
+
+    const playLoop = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const elapsed = (timestamp - startTimestamp) / 1000; // in seconds
+      
+      setCurrentTime((prev) => {
+        const nextTime = prev + elapsed;
+        // Reset startTimestamp for the next frame
+        startTimestamp = timestamp;
+        
+        if (nextTime >= totalDuration) {
+          setIsPlayingPreview(false);
+          return 0;
+        }
+        return nextTime;
+      });
+      
+      animFrameId = requestAnimationFrame(playLoop);
+    };
+
+    if (isPlayingPreview && workflowCompleted) {
+      animFrameId = requestAnimationFrame((t) => {
+        startTimestamp = t;
+        playLoop(t);
+      });
+    } else {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+    }
+
+    return () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+    };
+  }, [isPlayingPreview, workflowCompleted, totalDuration]);
+
+  // Map currentTime to active scene index
+  useEffect(() => {
+    let accTime = 0;
+    const activeIndex = mockScenes.slice(0, sceneCount).findIndex((scene) => {
+      accTime += scene.duration;
+      return currentTime <= accTime;
+    });
+    if (activeIndex !== -1) {
+      setActiveSceneIndex(activeIndex);
+    }
+  }, [currentTime, sceneCount]);
+
+  // Click on Timeline tracks space to seek/tua video
+  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!workflowCompleted) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickedTime = Math.max(0, Math.min(totalDuration, clickX / timelineScale));
+    setCurrentTime(clickedTime);
+  };
+
   // Helper to load templates
   const loadTemplate = useCallback((templateType: 'prompt' | 'doc' | 'blog') => {
     setSelectedNode(null);
     setWorkflowCompleted(false);
     setIsPlayingPreview(false);
+    setCurrentTime(0);
     
     if (templateType === 'prompt') {
       const templateNodes: Node[] = [
@@ -207,7 +271,7 @@ function WorkflowBuilder() {
       ];
       setNodes(templateNodes);
       setEdges(templateEdges);
-      setAspectRatio('9:16'); // auto portrait for social
+      setAspectRatio('9:16');
       addLog('Đã nạp mẫu: Blog sang Social Video (9:16).', 'success');
     }
   }, [promptValue, docValue, urlValue, setNodes, setEdges]);
@@ -307,13 +371,14 @@ function WorkflowBuilder() {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  // Run Workflow Simulation with AI Agent Chat
+  // Run Workflow Simulation
   const runWorkflow = useCallback(async () => {
     if (isRunning) return;
     
     setIsRunning(true);
     setWorkflowCompleted(false);
     setAgentLogs([]);
+    setCurrentTime(0);
     setActiveTab('agents');
     addLog('Bắt đầu chạy luồng video nâng cao...', 'info');
 
@@ -329,23 +394,21 @@ function WorkflowBuilder() {
     await sleep(1000);
     setNodes((nds) => nds.map((n) => (n.type === 'trigger' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
 
-    // 2. Input (Prompt, Doc, or URL)
+    // 2. Input
     setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'running' } } : n)));
     addLog('Đang thu thập dữ liệu đầu vào...', 'info');
     await sleep(1000);
     setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'success' } } : n)));
 
-    // 3. AI Script Node + Agent Orchestration Simulation
+    // 3. AI Script Node
     setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
     addLog('Khởi chạy hội thoại điều phối Agent...', 'info');
-    
     addAgentLog('Biên Kịch Agent', `Đã nhận nội dung đầu vào. Tôi bắt đầu phân tách thành kịch bản phân cảnh cho chủ đề: ${promptValue}.`, '#a855f7');
     await sleep(1200);
     addAgentLog('Đạo Diễn Agent', 'Kịch bản cần có nhịp điệu nhanh hơn ở phần mở đầu. Hãy thêm mô tả hành động trực quan cho Cảnh 1.', '#2563eb');
     await sleep(1200);
     addAgentLog('Biên Kịch Agent', 'Đồng ý. Tôi đã điều chỉnh lại lời thoại và bổ sung mô tả chuyển cảnh mượt mà.', '#a855f7');
     await sleep(1000);
-    
     setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
     addLog('AI Script đã hoàn thành kịch bản phân cảnh.', 'success');
 
@@ -394,20 +457,6 @@ function WorkflowBuilder() {
     setActiveTab('timeline');
     addLog('Mẫu video đã được dựng xong hoàn hảo!', 'success');
   }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes]);
-
-  // Video Preview Playback
-  useEffect(() => {
-    if (isPlayingPreview && workflowCompleted) {
-      playIntervalRef.current = setInterval(() => {
-        setActiveSceneIndex((prev) => (prev + 1) % mockScenes.length);
-      }, mockScenes[activeSceneIndex].duration * 1000);
-    } else {
-      if (playIntervalRef.current) clearInterval(playIntervalRef.current);
-    }
-    return () => {
-      if (playIntervalRef.current) clearInterval(playIntervalRef.current);
-    };
-  }, [isPlayingPreview, activeSceneIndex, workflowCompleted]);
 
   // Subtitle styling generator for preview screen
   const getSubStyle = () => {
@@ -482,6 +531,71 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
     addLog(`Đã xóa Node ${String(selectedNode.data.label)}`, 'warning');
     setSelectedNode(null);
   }, [selectedNode, setNodes, setEdges, addLog]);
+
+  // Render CapCut Time Ruler Ticks
+  const renderRulerTicks = () => {
+    const ticks = [];
+    const step = 2; // numbers every 2 seconds
+    for (let i = 0; i <= totalDuration; i++) {
+      ticks.push(
+        <div key={i} className="time-ruler-mark" style={{ left: `${i * timelineScale}px` }}>
+          {i % step === 0 && <span className="time-ruler-label">{i}s</span>}
+          {i % step !== 0 && <div className="time-ruler-submark" />}
+        </div>
+      );
+    }
+    return ticks;
+  };
+
+  // Build Track Blocks dynamically
+  const buildTrackBlocks = (trackType: 'visual' | 'audio' | 'subtitle') => {
+    let currentOffset = 0;
+    return mockScenes.slice(0, sceneCount).map((scene, idx) => {
+      const startOffset = currentOffset;
+      currentOffset += scene.duration;
+      const isActive = activeSceneIndex === idx;
+
+      if (trackType === 'visual') {
+        return (
+          <div 
+            key={scene.id} 
+            className={`track-block track-block-visual ${isActive ? 'active' : ''}`}
+            style={{ left: `${startOffset * timelineScale}px`, width: `${scene.duration * timelineScale}px` }}
+            onClick={() => setCurrentTime(startOffset + 0.1)}
+          >
+            <img src={scene.image} alt={scene.title} />
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.title}</span>
+          </div>
+        );
+      } else if (trackType === 'audio') {
+        return (
+          <div 
+            key={scene.id} 
+            className={`track-block track-block-audio ${isActive ? 'active' : ''}`}
+            style={{ left: `${startOffset * timelineScale}px`, width: `${scene.duration * timelineScale}px` }}
+            onClick={() => setCurrentTime(startOffset + 0.1)}
+          >
+            <Volume2 size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Lồng tiếng - {ttsVoice === 'nu-mien-bac' ? 'Giọng Nữ Bắc' : 'Giọng Nam Nam'}</span>
+            <div className="waveform-visual" />
+          </div>
+        );
+      } else { // subtitle
+        return (
+          <div 
+            key={scene.id} 
+            className={`track-block track-block-subtitle ${isActive ? 'active' : ''}`}
+            style={{ left: `${startOffset * timelineScale}px`, width: `${scene.duration * timelineScale}px` }}
+            onClick={() => setCurrentTime(startOffset + 0.1)}
+          >
+            <Type size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.text}</span>
+            <div className="subtitle-outline-visual" />
+          </div>
+        );
+      }
+    });
+  };
 
   return (
     <div id="root">
@@ -564,7 +678,7 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
               </div>
               <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'visualNode')}>
                 <div className="node-icon-wrapper color-visual"><ImageIcon size={14} /></div>
-                <div><div className="node-palette-name">Visual Node</div><div className="node-palette-desc">Sinh hình ảnh minh họa AI</div></div>
+                <div><div className="node-palette-name">Visual Node</div><div className="node-palette-desc">Sinh hình ảnh AI</div></div>
               </div>
               <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'audioTTS')}>
                 <div className="node-icon-wrapper" style={{ backgroundColor: '#8b5cf6' }}><Volume2 size={14} /></div>
@@ -778,7 +892,7 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
           <div className="bottom-tab-container">
             <div className="bottom-tabs-header">
               <button className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>
-                Phân Cảnh (Timeline)
+                Phân Cảnh CapCut (Timeline)
               </button>
               <button className={`tab-btn ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
                 Nhật Ký (Console)
@@ -813,23 +927,52 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
                       <p style={{ fontSize: '13px' }}>Chưa có phân cảnh nào được dựng. Nhấp <strong>Chạy thử</strong> ở trên để tạo.</p>
                     </div>
                   ) : (
-                    <div className="timeline-scene-container">
-                      {mockScenes.slice(0, sceneCount).map((scene, idx) => (
+                    /* CapCut Multi-track timeline view */
+                    <div className="timeline-tracks-container">
+                      {/* 1. Time Ruler */}
+                      <div className="time-ruler" onClick={handleTimelineClick}>
+                        {renderRulerTicks()}
+                        {/* Red Playhead line */}
                         <div 
-                          key={scene.id} 
-                          className="timeline-scene-card"
-                          style={{ borderColor: activeSceneIndex === idx && isPlayingPreview ? 'var(--primary)' : 'var(--border-dark)' }}
-                          onClick={() => {
-                            setActiveSceneIndex(idx);
-                            setIsPlayingPreview(false);
-                          }}
+                          className="playhead" 
+                          style={{ left: `${currentTime * timelineScale}px` }}
                         >
-                          <div className="timeline-scene-title">{scene.title}</div>
-                          <div className="timeline-scene-image"><img src={scene.image} alt={scene.title} /></div>
-                          <div className="timeline-scene-text">{scene.text}</div>
-                          <div className="timeline-scene-duration">{scene.duration} giây</div>
+                          <div className="playhead-handle" />
                         </div>
-                      ))}
+                      </div>
+
+                      {/* 2. Visual Track */}
+                      <div className="timeline-track-row">
+                        <div className="timeline-track-label">
+                          <ImageIcon size={12} />
+                          Hình ảnh
+                        </div>
+                        <div className="timeline-track-content" onClick={handleTimelineClick}>
+                          {buildTrackBlocks('visual')}
+                        </div>
+                      </div>
+
+                      {/* 3. Audio Track */}
+                      <div className="timeline-track-row">
+                        <div className="timeline-track-label">
+                          <Volume2 size={12} />
+                          Lồng tiếng
+                        </div>
+                        <div className="timeline-track-content" onClick={handleTimelineClick}>
+                          {buildTrackBlocks('audio')}
+                        </div>
+                      </div>
+
+                      {/* 4. Subtitle Track */}
+                      <div className="timeline-track-row" style={{ borderBottom: 'none' }}>
+                        <div className="timeline-track-label">
+                          <Type size={12} />
+                          Phụ đề
+                        </div>
+                        <div className="timeline-track-content" onClick={handleTimelineClick}>
+                          {buildTrackBlocks('subtitle')}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -896,13 +1039,16 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
                   className="btn" 
                   style={{ padding: '4px 8px', fontSize: '11px' }}
                   onClick={() => {
-                    setActiveSceneIndex(0);
+                    setCurrentTime(0);
                     setIsPlayingPreview(false);
                   }}
                 >
                   <RotateCcw size={12} />
                   Reset
                 </button>
+                <span style={{ fontSize: '11px', alignSelf: 'center', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
+                  {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
+                </span>
               </div>
             )}
           </div>
