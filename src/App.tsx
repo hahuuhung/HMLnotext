@@ -82,6 +82,20 @@ interface AgentMessage {
   message: string;
 }
 
+interface RenderConfig {
+  engine: 'ffmpeg' | 'remotion' | 'hybrid';
+  videoCodec: 'libx264' | 'libx265' | 'prores';
+  crf: number;
+  watermarkText: string;
+  watermarkPos: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  resizeMode: 'stretch' | 'letterbox' | 'crop';
+  transitionType: 'fade' | 'slide' | 'wipe';
+  audioMixBg: number;
+  template: string;
+  fps: number;
+  concurrency: number;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -102,6 +116,7 @@ interface Project {
   aspectRatio: string;
   transitionSpeed: string;
   workflowCompleted: boolean;
+  renderConfig?: RenderConfig;
 }
 
 function WorkflowBuilder() {
@@ -220,6 +235,29 @@ function WorkflowBuilder() {
   const [aspectRatio, setAspectRatio] = useState(initialProject.aspectRatio);
   const [transitionSpeed, setTransitionSpeed] = useState(initialProject.transitionSpeed);
 
+  const [renderConfig, setRenderConfig] = useState<RenderConfig>(() => {
+    return initialProject.renderConfig || {
+      engine: 'ffmpeg',
+      videoCodec: 'libx264',
+      crf: 23,
+      watermarkText: 'HMLnotext',
+      watermarkPos: 'bottom-right',
+      resizeMode: 'letterbox',
+      transitionType: 'fade',
+      audioMixBg: 30,
+      template: 'MainComposition',
+      fps: 30,
+      concurrency: 4
+    };
+  });
+
+  const updateRenderConfig = <K extends keyof RenderConfig>(key: K, value: RenderConfig[K]) => {
+    setRenderConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
   const [trackLocks, setTrackLocks] = useState({ visual: false, fx: false, audio: false, subtitle: false });
   const [trackMutes, setTrackMutes] = useState({ audio: false, subtitle: false });
   const [trackVisibility, setTrackVisibility] = useState({ visual: true, fx: true, subtitle: true });
@@ -250,7 +288,8 @@ function WorkflowBuilder() {
           subColor,
           aspectRatio,
           transitionSpeed,
-          workflowCompleted
+          workflowCompleted,
+          renderConfig
         };
       }
       return proj;
@@ -272,7 +311,8 @@ function WorkflowBuilder() {
     subColor,
     aspectRatio,
     transitionSpeed,
-    workflowCompleted
+    workflowCompleted,
+    renderConfig
   ]);
 
   useEffect(() => {
@@ -307,6 +347,19 @@ function WorkflowBuilder() {
     setAspectRatio(target.aspectRatio);
     setTransitionSpeed(target.transitionSpeed);
     setWorkflowCompleted(target.workflowCompleted);
+    setRenderConfig(target.renderConfig || {
+      engine: 'ffmpeg',
+      videoCodec: 'libx264',
+      crf: 23,
+      watermarkText: 'HMLnotext',
+      watermarkPos: 'bottom-right',
+      resizeMode: 'letterbox',
+      transitionType: 'fade',
+      audioMixBg: 30,
+      template: 'MainComposition',
+      fps: 30,
+      concurrency: 4
+    });
     
     addLog(`Đã chuyển sang dự án: "${target.name}"`, 'success');
   };
@@ -400,11 +453,24 @@ function WorkflowBuilder() {
       subColor: '#ffffff',
       aspectRatio: '16:9',
       transitionSpeed: 'normal',
-      workflowCompleted: false
+      workflowCompleted: false,
+      renderConfig: {
+        engine: 'ffmpeg',
+        videoCodec: 'libx264',
+        crf: 23,
+        watermarkText: 'HMLnotext',
+        watermarkPos: 'bottom-right',
+        resizeMode: 'letterbox',
+        transitionType: 'fade',
+        audioMixBg: 30,
+        template: 'MainComposition',
+        fps: 30,
+        concurrency: 4
+      }
     };
-
+ 
     setProjects(prev => [...prev, newProj]);
-    
+     
     setTimeout(() => {
       setActiveProjectId(id);
       setNodes(newProj.nodes);
@@ -423,8 +489,11 @@ function WorkflowBuilder() {
       setAspectRatio(newProj.aspectRatio);
       setTransitionSpeed(newProj.transitionSpeed);
       setWorkflowCompleted(newProj.workflowCompleted);
+      if (newProj.renderConfig) {
+        setRenderConfig(newProj.renderConfig);
+      }
     }, 50);
-
+ 
     addLog(`Đã tạo dự án mới: "${name}"`, 'success');
   };
 
@@ -903,10 +972,40 @@ function WorkflowBuilder() {
     const hasRender = nodes.some((n) => n.type === 'renderNode');
     if (hasRender) {
       setNodes((nds) => nds.map((n) => (n.type === 'renderNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      addLog('Dựng hình tổng hợp cuối cùng...', 'info');
-      await sleep(2000);
+      addLog('Bắt đầu quy trình biên tập và xuất bản...', 'info');
+      await sleep(800);
+
+      if (renderConfig.engine === 'ffmpeg') {
+        addLog('Đang khởi chạy FFmpeg Core Render Engine...', 'info');
+        await sleep(600);
+        addLog(`Cấu hình FFmpeg Codec: ${renderConfig.videoCodec.toUpperCase()} (CRF: ${renderConfig.crf})`, 'info');
+        await sleep(600);
+        addLog(`Đang điều chỉnh tỷ lệ khung hình ${aspectRatio} theo chế độ: ${renderConfig.resizeMode.toUpperCase()}`, 'info');
+        await sleep(600);
+        addLog(`Đang chèn nhãn Watermark mờ: "${renderConfig.watermarkText}" tại vị trí ${renderConfig.watermarkPos.toUpperCase()}`, 'info');
+        await sleep(600);
+        addLog(`Đang ghép nối các phân cảnh bằng hiệu ứng chuyển cảnh: ${renderConfig.transitionType.toUpperCase()}`, 'info');
+        await sleep(600);
+        addLog(`Đang trộn âm thuyết minh (voice-over) với nhạc nền (BG volume: ${renderConfig.audioMixBg}%)`, 'info');
+      } else if (renderConfig.engine === 'remotion') {
+        addLog('Đang khởi chạy Remotion React-based Animation Engine...', 'info');
+        await sleep(800);
+        addLog(`Nạp React Component Template: "${renderConfig.template}"`, 'info');
+        await sleep(800);
+        addLog(`Đang kết xuất khung hình hoạt họa ${renderConfig.fps} FPS song song với ${renderConfig.concurrency} luồng (Multi-threading)`, 'info');
+        await sleep(800);
+        addLog('Đang gộp chuỗi frame ảnh kết xuất thành video MP4 hoàn chỉnh...', 'info');
+      } else if (renderConfig.engine === 'hybrid') {
+        addLog('Đang kích hoạt quy trình Hybrid Render Engine...', 'info');
+        await sleep(600);
+        addLog(`[Remotion] Đang render các hoạt cảnh động phức tạp từ template: "${renderConfig.template}"`, 'info');
+        await sleep(800);
+        addLog(`[FFmpeg] Đang assemble, lồng tiếng, ghép phụ đề và tạo transition: ${renderConfig.transitionType.toUpperCase()}`, 'info');
+      }
+
+      await sleep(1500);
       setNodes((nds) => nds.map((n) => (n.type === 'renderNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('Tạo thành công video MP4.', 'success');
+      addLog(`Xuất bản thành công tệp video MP4 chất lượng cao bằng engine ${renderConfig.engine.toUpperCase()}!`, 'success');
     }
 
     setIsRunning(false);
@@ -914,7 +1013,7 @@ function WorkflowBuilder() {
     setCurrentTime(0);
     setActiveTab('timeline');
     addLog('Mẫu video đã được dựng xong hoàn hảo!', 'success');
-  }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes]);
+  }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes, renderConfig, aspectRatio]);
 
   // Subtitle styling generator for preview screen (respects track visibility and mute)
   const getSubStyle = () => {
@@ -1628,7 +1727,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         <option value="16:9">Ngang (16:9) - YouTube</option>
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '12px' }}>
                       <label className="form-label">Tốc độ chuyển cảnh:</label>
                       <select className="form-select" value={transitionSpeed} onChange={(e) => setTransitionSpeed(e.target.value)}>
                         <option value="slow">Chậm (Mượt mà)</option>
@@ -1636,6 +1735,175 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         <option value="fast">Nhanh (Kịch tính)</option>
                       </select>
                     </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 'bold', color: 'var(--primary)' }}>Công cụ Render (Engine):</label>
+                      <select 
+                        className="form-select" 
+                        value={renderConfig.engine} 
+                        onChange={(e) => updateRenderConfig('engine', e.target.value as RenderConfig['engine'])}
+                        style={{ borderColor: 'var(--primary)' }}
+                      >
+                        <option value="ffmpeg">FFmpeg (Core Render Engine)</option>
+                        <option value="remotion">Remotion (React Animation)</option>
+                        <option value="hybrid">Hybrid (Remotion + FFmpeg)</option>
+                      </select>
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {renderConfig.engine === 'ffmpeg' && 'FFmpeg: Thích hợp ghép nối ảnh/video tĩnh, phụ đề cứng, logo mờ, nhạc nền nhanh chóng.'}
+                        {renderConfig.engine === 'remotion' && 'Remotion: Thích hợp cho video hoạt cảnh phức tạp, chuyển động động mượt mà bằng React component.'}
+                        {renderConfig.engine === 'hybrid' && 'Hybrid: Remotion render hoạt cảnh phức tạp riêng lẻ, FFmpeg ghép nối (assemble) tốc độ cao.'}
+                      </p>
+                    </div>
+
+                    {/* FFmpeg Engine Options */}
+                    {renderConfig.engine === 'ffmpeg' && (
+                      <div style={{ background: 'var(--bg-app)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: 600, borderBottom: '1px dashed var(--border-dark)', paddingBottom: '4px' }}>Cấu hình FFmpeg</h4>
+                        
+                        <div className="form-group">
+                          <label className="form-label">Codec Video:</label>
+                          <select className="form-select" value={renderConfig.videoCodec} onChange={(e) => updateRenderConfig('videoCodec', e.target.value as RenderConfig['videoCodec'])}>
+                            <option value="libx264">H.264 (libx264) - Tương thích cao</option>
+                            <option value="libx265">HEVC (libx265) - Nén cao</option>
+                            <option value="prores">Apple ProRes - Chất lượng Studio</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Chất lượng nén (CRF: {renderConfig.crf}):</label>
+                          <input 
+                            type="range" 
+                            min="18" 
+                            max="28" 
+                            className="form-input" 
+                            style={{ padding: 0 }}
+                            value={renderConfig.crf} 
+                            onChange={(e) => updateRenderConfig('crf', Number(e.target.value))} 
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                            <span>18 (Cao nhất)</span>
+                            <span>28 (Thấp nhất)</span>
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Nhãn logo mờ (Watermark):</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value={renderConfig.watermarkText} 
+                            onChange={(e) => updateRenderConfig('watermarkText', e.target.value)} 
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Vị trí Watermark:</label>
+                          <select className="form-select" value={renderConfig.watermarkPos} onChange={(e) => updateRenderConfig('watermarkPos', e.target.value as RenderConfig['watermarkPos'])}>
+                            <option value="top-left">Góc trên - Trái</option>
+                            <option value="top-right">Góc trên - Phải</option>
+                            <option value="bottom-left">Góc dưới - Trái</option>
+                            <option value="bottom-right">Góc dưới - Phải</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Chế độ Resize:</label>
+                          <select className="form-select" value={renderConfig.resizeMode} onChange={(e) => updateRenderConfig('resizeMode', e.target.value as RenderConfig['resizeMode'])}>
+                            <option value="letterbox">Thêm viền đen (Letterbox)</option>
+                            <option value="crop">Cắt góc (Crop - Pan & Scan)</option>
+                            <option value="stretch">Kéo dãn hình (Stretch)</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Hiệu ứng Transition:</label>
+                          <select className="form-select" value={renderConfig.transitionType} onChange={(e) => updateRenderConfig('transitionType', e.target.value as RenderConfig['transitionType'])}>
+                            <option value="fade">Mờ dần (Fade)</option>
+                            <option value="slide">Trượt cảnh (Slide)</option>
+                            <option value="wipe">Quét cảnh (Wipe)</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Âm lượng nhạc nền: {renderConfig.audioMixBg}%</label>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            className="form-input" 
+                            style={{ padding: 0 }}
+                            value={renderConfig.audioMixBg} 
+                            onChange={(e) => updateRenderConfig('audioMixBg', Number(e.target.value))} 
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Remotion Engine Options */}
+                    {renderConfig.engine === 'remotion' && (
+                      <div style={{ background: 'var(--bg-app)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: 600, borderBottom: '1px dashed var(--border-dark)', paddingBottom: '4px' }}>Cấu hình Remotion</h4>
+                        
+                        <div className="form-group">
+                          <label className="form-label">React Component Template:</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value={renderConfig.template} 
+                            onChange={(e) => updateRenderConfig('template', e.target.value)} 
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Tốc độ khung hình (FPS):</label>
+                          <select className="form-select" value={renderConfig.fps} onChange={(e) => updateRenderConfig('fps', Number(e.target.value))}>
+                            <option value={24}>24 FPS - Điện ảnh</option>
+                            <option value={30}>30 FPS - Chuẩn Web</option>
+                            <option value={60}>60 FPS - Chuyển động siêu mượt</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Số luồng render song song (Multi-threading):</label>
+                          <select className="form-select" value={renderConfig.concurrency} onChange={(e) => updateRenderConfig('concurrency', Number(e.target.value))}>
+                            <option value={1}>1 luồng (Thấp)</option>
+                            <option value={2}>2 luồng</option>
+                            <option value={4}>4 luồng (Khuyên dùng)</option>
+                            <option value={8}>8 luồng (Hiệu năng cao)</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hybrid Engine Options */}
+                    {renderConfig.engine === 'hybrid' && (
+                      <div style={{ background: 'var(--bg-app)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: 600, borderBottom: '1px dashed var(--border-dark)', paddingBottom: '4px' }}>Cấu hình Kết Hợp (Hybrid)</h4>
+                        
+                        <div className="form-group">
+                          <label className="form-label">React Component Template (Remotion):</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value={renderConfig.template} 
+                            onChange={(e) => updateRenderConfig('template', e.target.value)} 
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Hiệu ứng Transition (FFmpeg Assemble):</label>
+                          <select className="form-select" value={renderConfig.transitionType} onChange={(e) => updateRenderConfig('transitionType', e.target.value as RenderConfig['transitionType'])}>
+                            <option value="fade">Mờ dần (Fade)</option>
+                            <option value="slide">Trượt cảnh (Slide)</option>
+                            <option value="wipe">Quét cảnh (Wipe)</option>
+                          </select>
+                        </div>
+
+                        <div style={{ fontSize: '11px', color: 'var(--primary)', padding: '6px', background: 'var(--primary-light)', borderRadius: '4px' }}>
+                          ℹ️ Hybrid Engine sẽ render các component hoạt cảnh React thành file video riêng lẻ qua Remotion, sau đó dùng FFmpeg trộn âm thanh lồng tiếng, phụ đề, hiệu ứng chuyển cảnh và logo mờ để tăng tốc độ xuất bản gấp 3 lần.
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
