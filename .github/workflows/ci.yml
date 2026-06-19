@@ -17,17 +17,33 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-size: 20
+        node-version: 20
         cache: 'npm'
 
-    - name: Install dependencies
+    - name: Install Frontend dependencies
       run: npm ci
 
-    - name: Lint code
+    - name: Lint Frontend
       run: npm run lint
 
-    - name: Run Typecheck and Build
+    - name: Build Frontend
       run: npm run build
 
-    - name: Run Unit Tests
+    - name: Test Frontend
+      run: npm run test
+
+    - name: Install Backend dependencies
+      working-directory: ./server
+      run: npm ci
+
+    - name: Generate Prisma Client
+      working-directory: ./server
+      run: npx prisma generate
+
+    - name: Build Backend
+      working-directory: ./server
+      run: npm run build
+
+    - name: Test Backend
+      working-directory: ./server
       run: npm run test
