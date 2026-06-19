@@ -80,9 +80,115 @@ interface AgentMessage {
   message: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  createdAt: string;
+  nodes: Node[];
+  edges: Edge[];
+  scenes: Scene[];
+  promptValue: string;
+  docValue: string;
+  urlValue: string;
+  aiTone: string;
+  sceneCount: number;
+  imageStyle: string;
+  ttsVoice: string;
+  ttsSpeed: string;
+  subStyle: string;
+  subColor: string;
+  aspectRatio: string;
+  transitionSpeed: string;
+  workflowCompleted: boolean;
+}
+
 function WorkflowBuilder() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [projects, setProjects] = useState<Project[]>(() => {
+    const saved = localStorage.getItem('hml_projects');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.warn("Failed to parse saved projects", e);
+      }
+    }
+    return [
+      {
+        id: 'project-default',
+        name: 'Dự án Cà phê phin Việt Nam',
+        createdAt: new Date().toLocaleString(),
+        nodes: [
+          { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle' } },
+          { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: 'Hương vị Cà phê phin Việt Nam' } },
+          { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle' } },
+          { id: 't4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle' } },
+          { id: 't5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle' } },
+          { id: 't6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle' } },
+          { id: 't7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle' } },
+        ],
+        edges: [
+          { id: 'e-t1-t2', source: 't1', target: 't2' },
+          { id: 'e-t2-t3', source: 't2', target: 't3' },
+          { id: 'e-t3-t4', source: 't3', target: 't4' },
+          { id: 'e-t3-t5', source: 't3', target: 't5' },
+          { id: 'e-t4-t6', source: 't4', target: 't6' },
+          { id: 'e-t5-t6', source: 't5', target: 't6' },
+          { id: 'e-t6-t7', source: 't6', target: 't7' },
+        ],
+        scenes: [
+          {
+            id: 1,
+            title: 'Cảnh 1: Giọt Cà Phê Rơi',
+            image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&q=80',
+            text: 'Từng giọt cà phê đen nhánh, đậm đặc rơi chầm chậm qua chiếc phin nhôm truyền thống.',
+            duration: 4,
+            fx: 'none',
+          },
+          {
+            id: 2,
+            title: 'Cảnh 2: Hạt Cà Phê Tây Nguyên',
+            image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80',
+            text: 'Những hạt cà phê Robusta chín mọng được thu hoạch từ vùng đất đỏ bazan lộng gió.',
+            duration: 5,
+            fx: 'vintage',
+          },
+          {
+            id: 3,
+            title: 'Cảnh 3: Ly Nâu Đá Thơm Ngon',
+            image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=400&q=80',
+            text: 'Hòa quyện cùng sữa đặc ngọt ngào và những viên đá mát lạnh, tạo nên hương vị khó quên.',
+            duration: 4,
+            fx: 'none',
+          },
+        ],
+        promptValue: 'Hương vị Cà phê phin Việt Nam',
+        docValue: 'kich_ban_lich_su_cafe.txt',
+        urlValue: 'https://blog.vietnam.travel/cafe-phin',
+        aiTone: 'truyen-cam',
+        sceneCount: 3,
+        imageStyle: 'cinematic',
+        ttsVoice: 'nu-mien-bac',
+        ttsSpeed: '1.0',
+        subStyle: 'tiktok',
+        subColor: '#ffff00',
+        aspectRatio: '9:16',
+        transitionSpeed: 'normal',
+        workflowCompleted: true
+      }
+    ];
+  });
+
+  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
+    const saved = localStorage.getItem('hml_active_project_id');
+    return saved || 'project-default';
+  });
+
+  const initialProject = projects.find(p => p.id === activeProjectId) || projects[0] || {
+    nodes: [], edges: [], scenes: [], promptValue: '', docValue: '', urlValue: '', aiTone: 'truyen-cam', sceneCount: 3, imageStyle: 'cinematic', ttsVoice: 'nu-mien-bac', ttsSpeed: '1.0', subStyle: 'tiktok', subColor: '#ffff00', aspectRatio: '9:16', transitionSpeed: 'normal', workflowCompleted: false
+  };
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialProject.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialProject.edges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'logs' | 'agents'>('timeline');
   const [logs, setLogs] = useState<LogEntry[]>([
@@ -91,68 +197,201 @@ function WorkflowBuilder() {
   ]);
   const [agentLogs, setAgentLogs] = useState<AgentMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [workflowCompleted, setWorkflowCompleted] = useState(false);
+  const [workflowCompleted, setWorkflowCompleted] = useState(initialProject.workflowCompleted);
   
-  // UI Mode: workflow (n8n layout) or kdenlive (professional NLE layout)
   const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive'>('workflow');
 
-  // Inspector States
-  const [promptValue, setPromptValue] = useState('Hương vị Cà phê phin Việt Nam');
-  const [docValue, setDocValue] = useState('kich_ban_lich_su_cafe.txt');
-  const [urlValue, setUrlValue] = useState('https://blog.vietnam.travel/cafe-phin');
+  const [promptValue, setPromptValue] = useState(initialProject.promptValue);
+  const [docValue, setDocValue] = useState(initialProject.docValue);
+  const [urlValue, setUrlValue] = useState(initialProject.urlValue);
   
-  const [aiTone, setAiTone] = useState('truyen-cam');
-  const [sceneCount, setSceneCount] = useState(3);
-  const [imageStyle, setImageStyle] = useState('cinematic');
+  const [aiTone, setAiTone] = useState(initialProject.aiTone);
+  const [sceneCount, setSceneCount] = useState(initialProject.sceneCount);
+  const [imageStyle, setImageStyle] = useState(initialProject.imageStyle);
   
-  // TTS Voice states
-  const [ttsVoice, setTtsVoice] = useState('nu-mien-bac');
-  const [ttsSpeed, setTtsSpeed] = useState('1.0');
+  const [ttsVoice, setTtsVoice] = useState(initialProject.ttsVoice);
+  const [ttsSpeed, setTtsSpeed] = useState(initialProject.ttsSpeed);
   
-  // Subtitle states
-  const [subStyle, setSubStyle] = useState('tiktok');
-  const [subColor, setSubColor] = useState('#ffff00');
+  const [subStyle, setSubStyle] = useState(initialProject.subStyle);
+  const [subColor, setSubColor] = useState(initialProject.subColor);
 
-  const [aspectRatio, setAspectRatio] = useState('9:16');
-  const [transitionSpeed, setTransitionSpeed] = useState('normal');
+  const [aspectRatio, setAspectRatio] = useState(initialProject.aspectRatio);
+  const [transitionSpeed, setTransitionSpeed] = useState(initialProject.transitionSpeed);
 
-  // Track Control States (Kdenlive style lock / mute / hide)
   const [trackLocks, setTrackLocks] = useState({ visual: false, fx: false, audio: false, subtitle: false });
   const [trackMutes, setTrackMutes] = useState({ audio: false, subtitle: false });
   const [trackVisibility, setTrackVisibility] = useState({ visual: true, fx: true, subtitle: true });
 
-  // Preview Playback States
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0); // in seconds
+  const [currentTime, setCurrentTime] = useState(0);
 
-  // Interactive Scenes state (for drag edit & FX)
-  const [scenes, setScenes] = useState<Scene[]>([
-    {
-      id: 1,
-      title: 'Cảnh 1: Giọt Cà Phê Rơi',
-      image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&q=80',
-      text: 'Từng giọt cà phê đen nhánh, đậm đặc rơi chầm chậm qua chiếc phin nhôm truyền thống.',
-      duration: 4,
-      fx: 'none',
-    },
-    {
-      id: 2,
-      title: 'Cảnh 2: Hạt Cà Phê Tây Nguyên',
-      image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80',
-      text: 'Những hạt cà phê Robusta chín mọng được thu hoạch từ vùng đất đỏ bazan lộng gió.',
-      duration: 5,
-      fx: 'vintage',
-    },
-    {
-      id: 3,
-      title: 'Cảnh 3: Ly Nâu Đá Thơm Ngon',
-      image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=400&q=80',
-      text: 'Hòa quyện cùng sữa đặc ngọt ngào và những viên đá mát lạnh, tạo nên hương vị khó quên.',
-      duration: 4,
-      fx: 'none',
-    },
+  const [scenes, setScenes] = useState<Scene[]>(initialProject.scenes);
+
+  useEffect(() => {
+    setProjects(prev => prev.map(proj => {
+      if (proj.id === activeProjectId) {
+        return {
+          ...proj,
+          nodes,
+          edges,
+          scenes,
+          promptValue,
+          docValue,
+          urlValue,
+          aiTone,
+          sceneCount,
+          imageStyle,
+          ttsVoice,
+          ttsSpeed,
+          subStyle,
+          subColor,
+          aspectRatio,
+          transitionSpeed,
+          workflowCompleted
+        };
+      }
+      return proj;
+    }));
+  }, [
+    activeProjectId,
+    nodes,
+    edges,
+    scenes,
+    promptValue,
+    docValue,
+    urlValue,
+    aiTone,
+    sceneCount,
+    imageStyle,
+    ttsVoice,
+    ttsSpeed,
+    subStyle,
+    subColor,
+    aspectRatio,
+    transitionSpeed,
+    workflowCompleted
   ]);
+
+  useEffect(() => {
+    localStorage.setItem('hml_projects', JSON.stringify(projects));
+  }, [projects]);
+
+  useEffect(() => {
+    localStorage.setItem('hml_active_project_id', activeProjectId);
+  }, [activeProjectId]);
+
+  const switchProject = (projectId: string) => {
+    const target = projects.find(p => p.id === projectId);
+    if (!target) return;
+    
+    setIsPlayingPreview(false);
+    setCurrentTime(0);
+    setActiveProjectId(projectId);
+
+    setNodes(target.nodes);
+    setEdges(target.edges);
+    setScenes(target.scenes);
+    setPromptValue(target.promptValue);
+    setDocValue(target.docValue);
+    setUrlValue(target.urlValue);
+    setAiTone(target.aiTone);
+    setSceneCount(target.sceneCount);
+    setImageStyle(target.imageStyle);
+    setTtsVoice(target.ttsVoice);
+    setTtsSpeed(target.ttsSpeed);
+    setSubStyle(target.subStyle);
+    setSubColor(target.subColor);
+    setAspectRatio(target.aspectRatio);
+    setTransitionSpeed(target.transitionSpeed);
+    setWorkflowCompleted(target.workflowCompleted);
+    
+    addLog(`Đã chuyển sang dự án: "${target.name}"`, 'success');
+  };
+
+  const createNewProject = () => {
+    const id = `project-${Date.now()}`;
+    const name = `Dự án Video Mới (${new Date().toLocaleDateString()})`;
+    const newProj: Project = {
+      id,
+      name,
+      createdAt: new Date().toLocaleString(),
+      nodes: [
+        { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle' } },
+        { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: 'Chủ đề video mới' } },
+        { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle' } },
+        { id: 't7', type: 'renderNode', position: { x: 700, y: 150 }, data: { label: 'Xuất Bản', status: 'idle' } },
+      ],
+      edges: [
+        { id: 'e-t1-t2', source: 't1', target: 't2' },
+        { id: 'e-t2-t3', source: 't2', target: 't3' },
+        { id: 'e-t3-t7', source: 't3', target: 't7' },
+      ],
+      scenes: [
+        {
+          id: 1,
+          title: 'Cảnh 1: Bắt đầu',
+          image: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&q=80',
+          text: 'Giới thiệu về nội dung video mới.',
+          duration: 5,
+          fx: 'none',
+        }
+      ],
+      promptValue: 'Chủ đề video mới',
+      docValue: 'tai_lieu_moi.txt',
+      urlValue: 'https://example.com/blog',
+      aiTone: 'truyen-cam',
+      sceneCount: 1,
+      imageStyle: 'cinematic',
+      ttsVoice: 'nu-mien-bac',
+      ttsSpeed: '1.0',
+      subStyle: 'tiktok',
+      subColor: '#ffffff',
+      aspectRatio: '16:9',
+      transitionSpeed: 'normal',
+      workflowCompleted: false
+    };
+
+    setProjects(prev => [...prev, newProj]);
+    
+    setTimeout(() => {
+      setActiveProjectId(id);
+      setNodes(newProj.nodes);
+      setEdges(newProj.edges);
+      setScenes(newProj.scenes);
+      setPromptValue(newProj.promptValue);
+      setDocValue(newProj.docValue);
+      setUrlValue(newProj.urlValue);
+      setAiTone(newProj.aiTone);
+      setSceneCount(newProj.sceneCount);
+      setImageStyle(newProj.imageStyle);
+      setTtsVoice(newProj.ttsVoice);
+      setTtsSpeed(newProj.ttsSpeed);
+      setSubStyle(newProj.subStyle);
+      setSubColor(newProj.subColor);
+      setAspectRatio(newProj.aspectRatio);
+      setTransitionSpeed(newProj.transitionSpeed);
+      setWorkflowCompleted(newProj.workflowCompleted);
+    }, 50);
+
+    addLog(`Đã tạo dự án mới: "${name}"`, 'success');
+  };
+
+  const deleteProject = (projectId: string) => {
+    if (projects.length <= 1) {
+      addLog('Không thể xóa dự án duy nhất còn lại!', 'warning');
+      return;
+    }
+    const targetIdx = projects.findIndex(p => p.id === projectId);
+    const nextActiveProject = projects[targetIdx === 0 ? 1 : targetIdx - 1];
+
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    
+    setTimeout(() => {
+      switchProject(nextActiveProject.id);
+    }, 50);
+    addLog(`Đã xóa dự án thành công.`, 'warning');
+  };
 
   // Drag and Drop timeline items reordering
   const [draggedSceneIndex, setDraggedSceneIndex] = useState<number | null>(null);
@@ -867,8 +1106,40 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           </div>
         </div>
 
+        {/* Project Selector Section */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid var(--border-dark)', paddingLeft: '16px', marginLeft: '16px', marginRight: 'auto' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Dự án:</span>
+          <select 
+            className="form-select" 
+            style={{ width: '200px', height: '32px', padding: '0 8px', fontSize: '12px', margin: 0, backgroundColor: editorMode === 'kdenlive' ? '#1a1924' : '#fff', color: editorMode === 'kdenlive' ? '#fff' : 'inherit', borderColor: editorMode === 'kdenlive' ? '#3d3b4f' : 'var(--border-dark)' }}
+            value={activeProjectId} 
+            onChange={(e) => switchProject(e.target.value)}
+          >
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <button 
+            className="btn" 
+            style={{ padding: '6px 10px', fontSize: '11px', height: '32px' }}
+            onClick={createNewProject}
+            title="Tạo dự án mới"
+          >
+            + Mới
+          </button>
+          <button 
+            className="btn" 
+            style={{ padding: '6px 10px', fontSize: '11px', height: '32px', color: 'var(--error)' }}
+            onClick={() => deleteProject(activeProjectId)}
+            disabled={projects.length <= 1}
+            title="Xóa dự án hiện tại"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+
         {/* Toggle Mode Buttons style in Kdenlive style */}
-        <div className="mode-toggle-group">
+        <div className="mode-toggle-group" style={{ marginRight: '16px' }}>
           <button 
             className={`mode-toggle-btn ${editorMode === 'workflow' ? 'active' : ''}`} 
             onClick={() => setEditorMode('workflow')}
