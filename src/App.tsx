@@ -25,7 +25,8 @@ import {
   Globe,
   Volume2,
   Type,
-  Users
+  Users,
+  Zap
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -64,6 +65,7 @@ interface Scene {
   image: string;
   text: string;
   duration: number;
+  fx: string;
 }
 
 interface AgentMessage {
@@ -79,8 +81,8 @@ function WorkflowBuilder() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'logs' | 'agents'>('timeline');
   const [logs, setLogs] = useState<LogEntry[]>([
-    { time: '14:02:07', type: 'info', message: 'Mở rộng tính năng Timeline CapCut.' },
-    { time: '14:02:08', type: 'info', message: 'Hệ thống đồng bộ video và Playhead đã sẵn sàng.' }
+    { time: '14:08:07', type: 'info', message: 'Nâng cấp Workspace hỗ trợ kéo thả Timeline & Hiệu ứng FX.' },
+    { time: '14:08:08', type: 'info', message: 'Bộ lọc FX thời gian thực đã sẵn sàng hoạt động.' }
   ]);
   const [agentLogs, setAgentLogs] = useState<AgentMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -111,14 +113,15 @@ function WorkflowBuilder() {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0); // in seconds
 
-  // Mock Scenes Data
-  const mockScenes: Scene[] = [
+  // Interactive Scenes state (for drag edit & FX)
+  const [scenes, setScenes] = useState<Scene[]>([
     {
       id: 1,
       title: 'Cảnh 1: Giọt Cà Phê Rơi',
       image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&q=80',
       text: 'Từng giọt cà phê đen nhánh, đậm đặc rơi chầm chậm qua chiếc phin nhôm truyền thống.',
       duration: 4,
+      fx: 'none',
     },
     {
       id: 2,
@@ -126,6 +129,7 @@ function WorkflowBuilder() {
       image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80',
       text: 'Những hạt cà phê Robusta chín mọng được thu hoạch từ vùng đất đỏ bazan lộng gió.',
       duration: 5,
+      fx: 'vintage',
     },
     {
       id: 3,
@@ -133,12 +137,53 @@ function WorkflowBuilder() {
       image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=400&q=80',
       text: 'Hòa quyện cùng sữa đặc ngọt ngào và những viên đá mát lạnh, tạo nên hương vị khó quên.',
       duration: 4,
+      fx: 'none',
     },
-  ];
+  ]);
+
+  // Drag and Drop timeline items reordering
+  const [draggedSceneIndex, setDraggedSceneIndex] = useState<number | null>(null);
+
+  const handleSceneDragStart = (idx: number) => {
+    setDraggedSceneIndex(idx);
+  };
+
+  const handleSceneDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleSceneDrop = (targetIdx: number) => {
+    if (draggedSceneIndex === null) return;
+    if (draggedSceneIndex === targetIdx) return;
+    
+    const reordered = [...scenes];
+    const [draggedItem] = reordered.splice(draggedSceneIndex, 1);
+    reordered.splice(targetIdx, 0, draggedItem);
+    
+    setScenes(reordered);
+    setDraggedSceneIndex(null);
+    addLog(`Đã hoán đổi vị trí cảnh ${draggedSceneIndex + 1} sang cảnh ${targetIdx + 1}.`, 'success');
+  };
+
+  // FX change handler
+  const handleSceneFxChange = (idx: number, fxValue: string) => {
+    setScenes((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, fx: fxValue } : s))
+    );
+    const fxNameMap: Record<string, string> = {
+      none: 'Không có',
+      cinematic: 'Điện ảnh',
+      vintage: 'Hoài cổ',
+      noir: 'Trắng đen',
+      glitch: 'Nhiễu sóng',
+      blur: 'Làm mờ',
+    };
+    addLog(`Đã áp dụng hiệu ứng ${fxNameMap[fxValue] || fxValue} cho Cảnh ${idx + 1}`, 'success');
+  };
 
   // Calculate total duration based on selected scenes
-  const totalDuration = mockScenes.slice(0, sceneCount).reduce((acc, s) => acc + s.duration, 0);
-  const timelineScale = 50; // pixels per second (width of 1s is 50px)
+  const totalDuration = scenes.slice(0, sceneCount).reduce((acc, s) => acc + s.duration, 0);
+  const timelineScale = 50; // pixels per second
 
   // Synchronized Playhead and Preview Screen
   useEffect(() => {
@@ -151,7 +196,6 @@ function WorkflowBuilder() {
       
       setCurrentTime((prev) => {
         const nextTime = prev + elapsed;
-        // Reset startTimestamp for the next frame
         startTimestamp = timestamp;
         
         if (nextTime >= totalDuration) {
@@ -181,14 +225,14 @@ function WorkflowBuilder() {
   // Map currentTime to active scene index
   useEffect(() => {
     let accTime = 0;
-    const activeIndex = mockScenes.slice(0, sceneCount).findIndex((scene) => {
+    const activeIndex = scenes.slice(0, sceneCount).findIndex((scene) => {
       accTime += scene.duration;
       return currentTime <= accTime;
     });
     if (activeIndex !== -1) {
       setActiveSceneIndex(activeIndex);
     }
-  }, [currentTime, sceneCount]);
+  }, [currentTime, sceneCount, scenes]);
 
   // Click on Timeline tracks space to seek/tua video
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -197,6 +241,13 @@ function WorkflowBuilder() {
     const clickX = e.clientX - rect.left;
     const clickedTime = Math.max(0, Math.min(totalDuration, clickX / timelineScale));
     setCurrentTime(clickedTime);
+  };
+
+  // Get active scene FX CSS Filter class
+  const getFxClass = () => {
+    const activeScene = scenes[activeSceneIndex];
+    if (!activeScene || !activeScene.fx || activeScene.fx === 'none') return '';
+    return `fx-${activeScene.fx}`;
   };
 
   // Helper to load templates
@@ -319,7 +370,7 @@ function WorkflowBuilder() {
     setSelectedNode(null);
   }, []);
 
-  // Drag and Drop
+  // Drag and Drop nodes
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -511,7 +562,7 @@ THAM SỐ HỆ THỐNG:
 - Tốc độ chuyển cảnh: ${transitionSpeed}
 
 CHI TIẾT PHÂN CẢNH VIDEO:
-${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh nguồn: ${s.image}\n`).join('\n')}`;
+${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh nguồn: ${s.image}\nHiệu ứng FX: ${s.fx}\n`).join('\n')}`;
 
     const blob = new Blob([textData], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -547,20 +598,29 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
     return ticks;
   };
 
-  // Build Track Blocks dynamically
-  const buildTrackBlocks = (trackType: 'visual' | 'audio' | 'subtitle') => {
+  // Build Track Blocks dynamically (Supports drag-and-drop on visual track)
+  const buildTrackBlocks = (trackType: 'visual' | 'audio' | 'subtitle' | 'fx') => {
     let currentOffset = 0;
-    return mockScenes.slice(0, sceneCount).map((scene, idx) => {
+    return scenes.slice(0, sceneCount).map((scene, idx) => {
       const startOffset = currentOffset;
       currentOffset += scene.duration;
       const isActive = activeSceneIndex === idx;
+
+      const blockStyle = { 
+        left: `${startOffset * timelineScale}px`, 
+        width: `${scene.duration * timelineScale}px` 
+      };
 
       if (trackType === 'visual') {
         return (
           <div 
             key={scene.id} 
             className={`track-block track-block-visual ${isActive ? 'active' : ''}`}
-            style={{ left: `${startOffset * timelineScale}px`, width: `${scene.duration * timelineScale}px` }}
+            style={blockStyle}
+            draggable
+            onDragStart={() => handleSceneDragStart(idx)}
+            onDragOver={handleSceneDragOver}
+            onDrop={() => handleSceneDrop(idx)}
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <img src={scene.image} alt={scene.title} />
@@ -572,7 +632,7 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
           <div 
             key={scene.id} 
             className={`track-block track-block-audio ${isActive ? 'active' : ''}`}
-            style={{ left: `${startOffset * timelineScale}px`, width: `${scene.duration * timelineScale}px` }}
+            style={blockStyle}
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <Volume2 size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
@@ -580,17 +640,46 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
             <div className="waveform-visual" />
           </div>
         );
-      } else { // subtitle
+      } else if (trackType === 'subtitle') {
         return (
           <div 
             key={scene.id} 
             className={`track-block track-block-subtitle ${isActive ? 'active' : ''}`}
-            style={{ left: `${startOffset * timelineScale}px`, width: `${scene.duration * timelineScale}px` }}
+            style={blockStyle}
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <Type size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.text}</span>
             <div className="subtitle-outline-visual" />
+          </div>
+        );
+      } else { // FX track
+        const fxLabels: Record<string, string> = {
+          none: 'Không FX',
+          cinematic: 'Cinematic Glow',
+          vintage: 'Vintage Sepia',
+          noir: 'Noir Noir',
+          glitch: 'Glitch Art',
+          blur: 'Soft Blur',
+        };
+        const hasFx = scene.fx !== 'none';
+        
+        return (
+          <div 
+            key={scene.id} 
+            className={`track-block track-block-fx ${isActive ? 'active' : ''}`}
+            style={{ 
+              ...blockStyle, 
+              opacity: hasFx ? 1 : 0.25, 
+              background: hasFx ? undefined : '#2e2d3b', 
+              borderStyle: hasFx ? 'solid' : 'dashed'
+            }}
+            onClick={() => setCurrentTime(startOffset + 0.1)}
+          >
+            <Zap size={12} style={{ marginRight: '6px', minWidth: '12px', color: hasFx ? '#f472b6' : 'inherit' }} />
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {hasFx ? fxLabels[scene.fx] : 'Chưa áp FX'}
+            </span>
           </div>
         );
       }
@@ -883,6 +972,44 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
                   </div>
                 </>
               )}
+
+              {/* Custom active scene configuration (FX, text, duration) inside Inspector */}
+              {workflowCompleted && (
+                <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid var(--border-dark)' }}>
+                  <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)', marginBottom: '12px' }}>
+                    Thiết lập Cảnh {activeSceneIndex + 1}
+                  </h4>
+                  <div className="form-group" style={{ marginBottom: '12px' }}>
+                    <label className="form-label">Bộ lọc hiệu ứng FX:</label>
+                    <select 
+                      className="form-select"
+                      value={scenes[activeSceneIndex].fx}
+                      onChange={(e) => handleSceneFxChange(activeSceneIndex, e.target.value)}
+                    >
+                      <option value="none">Không có hiệu ứng</option>
+                      <option value="cinematic">Cinematic Glow (Màu ấm điện ảnh)</option>
+                      <option value="vintage">Vintage Sepia (Phim cổ điển)</option>
+                      <option value="noir">Noir Grayscale (Đen trắng nghệ thuật)</option>
+                      <option value="glitch">Glitch Art (Nhiễu sóng động)</option>
+                      <option value="blur">Soft Blur (Nhòe mờ nền)</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Thời lượng cảnh (giây):</label>
+                    <input 
+                      type="number" 
+                      min={1} 
+                      max={15} 
+                      className="form-input" 
+                      value={scenes[activeSceneIndex].duration} 
+                      onChange={(e) => {
+                        const val = Math.max(1, Number(e.target.value));
+                        setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
+                      }} 
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -941,7 +1068,7 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
                         </div>
                       </div>
 
-                      {/* 2. Visual Track */}
+                      {/* 2. Visual Track (Supports Drag-and-drop to reorder) */}
                       <div className="timeline-track-row">
                         <div className="timeline-track-label">
                           <ImageIcon size={12} />
@@ -952,7 +1079,18 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
                         </div>
                       </div>
 
-                      {/* 3. Audio Track */}
+                      {/* 3. FX Track (Hiển thị các hiệu ứng FX) */}
+                      <div className="timeline-track-row">
+                        <div className="timeline-track-label">
+                          <Zap size={12} />
+                          Hiệu ứng FX
+                        </div>
+                        <div className="timeline-track-content" onClick={handleTimelineClick}>
+                          {buildTrackBlocks('fx')}
+                        </div>
+                      </div>
+
+                      {/* 4. Audio Track */}
                       <div className="timeline-track-row">
                         <div className="timeline-track-label">
                           <Volume2 size={12} />
@@ -963,7 +1101,7 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
                         </div>
                       </div>
 
-                      {/* 4. Subtitle Track */}
+                      {/* 5. Subtitle Track */}
                       <div className="timeline-track-row" style={{ borderBottom: 'none' }}>
                         <div className="timeline-track-label">
                           <Type size={12} />
@@ -1009,15 +1147,17 @@ ${mockScenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\n�
             <div className="video-screen" style={{ aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '170px' }}>
               {workflowCompleted ? (
                 <>
+                  {/* Applied active scene FX class dynamically */}
                   <img 
-                    src={mockScenes[activeSceneIndex].image} 
+                    src={scenes[activeSceneIndex].image} 
                     alt="Active scene" 
+                    className={getFxClass()}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
                   />
                   {/* Dynamic Subtitle overlay */}
                   <div style={{ position: 'absolute', bottom: '15px', left: '10px', right: '10px', display: 'flex', justifyContent: 'center' }}>
                     <span style={getSubStyle()}>
-                      {mockScenes[activeSceneIndex].text}
+                      {scenes[activeSceneIndex].text}
                     </span>
                   </div>
                   <div 

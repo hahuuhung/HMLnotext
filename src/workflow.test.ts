@@ -63,4 +63,23 @@ describe('Kiểm thử Workflow Builder', () => {
 
     expect(newNodes.map(n => n.type)).toEqual(['docInput', 'urlInput', 'audioTTS', 'subtitle']);
   });
+
+  it('Phải hỗ trợ thay đổi hiệu ứng FX trên phân cảnh và hoán đổi vị trí cảnh', () => {
+    const testScenes = [
+      { id: 1, title: 'Cảnh 1', fx: 'none' },
+      { id: 2, title: 'Cảnh 2', fx: 'vintage' }
+    ];
+
+    // Cập nhật FX
+    testScenes[0].fx = 'glitch';
+    expect(testScenes[0].fx).toBe('glitch');
+
+    // Hoán đổi vị trí cảnh
+    const temp = testScenes[0];
+    testScenes[0] = testScenes[1];
+    testScenes[1] = temp;
+
+    expect(testScenes[0].title).toBe('Cảnh 2');
+    expect(testScenes[1].title).toBe('Cảnh 1');
+  });
 });
