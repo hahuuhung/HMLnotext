@@ -40,7 +40,6 @@ import {
   Save,
   Plus,
   GitBranch,
-  Send,
   Columns
 } from 'lucide-react';
 import { 
@@ -87,6 +86,7 @@ interface Scene {
   text: string;
   duration: number;
   fx: string;
+  audioUrl?: string;
 }
 
 interface AgentMessage {
@@ -227,6 +227,7 @@ function WorkflowBuilder() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialProject.edges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'logs' | 'agents'>('timeline');
+  const [activeTemplate, setActiveTemplate] = useState<'prompt' | 'doc' | 'blog'>('prompt');
   const [logs, setLogs] = useState<LogEntry[]>([
     { time: '14:22:07', type: 'info', message: 'Kích hoạt Chế độ dựng phim Kdenlive.' },
     { time: '14:22:08', type: 'info', message: 'Media Project Bin và Effect Stack đã sẵn sàng.' }
@@ -845,6 +846,7 @@ function WorkflowBuilder() {
 
   // Helper to load templates
   const loadTemplate = useCallback((templateType: 'prompt' | 'doc' | 'blog') => {
+    setActiveTemplate(templateType);
     setSelectedNode(null);
     setWorkflowCompleted(false);
     setIsPlayingPreview(false);
@@ -982,7 +984,7 @@ function WorkflowBuilder() {
     }
   };
 
-  // Update input nodes data values
+  // Update nodes dynamic configurations in real-time
   useEffect(() => {
     setNodes((nds) =>
       nds.map((node) => {
@@ -991,10 +993,68 @@ function WorkflowBuilder() {
         if (node.type === 'urlInput') return { ...node, data: { ...node.data, value: urlValue } };
         if (node.type === 'codeNode') return { ...node, data: { ...node.data, value: codeValue } };
         if (node.type === 'customAINode') return { ...node, data: { ...node.data, value: customAIPrompt } };
+        if (node.type === 'aiNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              writerModel,
+              aiTone,
+              sceneCount
+            }
+          };
+        }
+        if (node.type === 'visualNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              imageStyle,
+              previewImage: scenes.length > 0 ? scenes[0].image : undefined
+            }
+          };
+        }
+        if (node.type === 'audioTTS') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              ttsVoice,
+              ttsSpeed
+            }
+          };
+        }
+        if (node.type === 'subtitle') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              subStyle,
+              subColor
+            }
+          };
+        }
+        if (node.type === 'renderNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              aspectRatio,
+              transitionSpeed,
+              renderEngine: renderConfig.engine,
+              renderCRF: renderConfig.crf
+            }
+          };
+        }
         return node;
       })
     );
-  }, [promptValue, docValue, urlValue, codeValue, customAIPrompt, setNodes]);
+  }, [
+    promptValue, docValue, urlValue, codeValue, customAIPrompt,
+    writerModel, aiTone, sceneCount, imageStyle, scenes,
+    ttsVoice, ttsSpeed, subStyle, subColor, aspectRatio,
+    transitionSpeed, renderConfig.engine, renderConfig.crf, setNodes
+  ]);
 
 
 
@@ -1772,6 +1832,15 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             <Download size={15} />
             Tải kịch bản (MP4)
           </button>
+
+          <button 
+            className="btn" 
+            onClick={() => setIsSidebarSwapped(!isSidebarSwapped)}
+            title="Hoán đổi vị trí thanh bên (Trái <=> Phải)"
+          >
+            <Columns size={15} />
+            Đổi bên
+          </button>
         </div>
       </div>
 
@@ -1790,10 +1859,188 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               Mẫu Video Nhanh (Templates)
             </div>
             <div style={{ padding: '8px 16px 4px 16px', display: 'flex', gap: '8px', flexDirection: 'column' }}>
-              <button className="btn" style={{ fontSize: '12px', justifyContent: 'flex-start', background: 'var(--bg-app)', border: '1px solid var(--border)' }} onClick={() => loadTemplate('prompt')}>✨ Mẫu Tự động (Prompt)</button>
-              <button className="btn" style={{ fontSize: '12px', justifyContent: 'flex-start', background: 'var(--bg-app)', border: '1px solid var(--border)' }} onClick={() => loadTemplate('doc')}>📄 Mẫu Tài liệu (Upload)</button>
-              <button className="btn" style={{ fontSize: '12px', justifyContent: 'flex-start', background: 'var(--bg-app)', border: '1px solid var(--border)' }} onClick={() => loadTemplate('blog')}>📱 Mẫu Social (Shorts/TikTok)</button>
+              <button 
+                className={`btn ${activeTemplate === 'prompt' ? 'btn-primary' : ''}`} 
+                style={{ 
+                  fontSize: '12px', 
+                  justifyContent: 'flex-start', 
+                  background: activeTemplate === 'prompt' ? undefined : 'var(--bg-app)', 
+                  border: activeTemplate === 'prompt' ? 'none' : '1px solid var(--border)',
+                  color: activeTemplate === 'prompt' ? 'white' : 'var(--text-primary)'
+                }} 
+                onClick={() => loadTemplate('prompt')}
+              >
+                ✨ Mẫu Tự động (Prompt)
+              </button>
+              <button 
+                className={`btn ${activeTemplate === 'doc' ? 'btn-primary' : ''}`} 
+                style={{ 
+                  fontSize: '12px', 
+                  justifyContent: 'flex-start', 
+                  background: activeTemplate === 'doc' ? undefined : 'var(--bg-app)', 
+                  border: activeTemplate === 'doc' ? 'none' : '1px solid var(--border)',
+                  color: activeTemplate === 'doc' ? 'white' : 'var(--text-primary)'
+                }} 
+                onClick={() => loadTemplate('doc')}
+              >
+                📄 Mẫu Tài liệu (Upload)
+              </button>
+              <button 
+                className={`btn ${activeTemplate === 'blog' ? 'btn-primary' : ''}`} 
+                style={{ 
+                  fontSize: '12px', 
+                  justifyContent: 'flex-start', 
+                  background: activeTemplate === 'blog' ? undefined : 'var(--bg-app)', 
+                  border: activeTemplate === 'blog' ? 'none' : '1px solid var(--border)',
+                  color: activeTemplate === 'blog' ? 'white' : 'var(--text-primary)'
+                }} 
+                onClick={() => loadTemplate('blog')}
+              >
+                📱 Mẫu Social (Shorts/TikTok)
+              </button>
               <button className="btn" style={{ fontSize: '12px', justifyContent: 'center', background: 'var(--accent)', color: 'white', border: 'none', marginTop: '4px' }} onClick={() => alert('Đang kết nối thư viện Cộng đồng (Marketplace)... Tính năng sẽ có trong bản cập nhật tới!')}>🌍 Chợ Template (Marketplace)</button>
+            </div>
+
+            {/* Bảng cấu hình nhanh No-code */}
+            <div style={{ 
+              margin: '8px 16px', 
+              padding: '12px', 
+              borderRadius: '8px', 
+              background: '#f8fafc', 
+              border: '1px solid var(--border-dark)', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '10px' 
+            }}>
+              <h4 style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-dark)', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', margin: 0 }}>
+                ⚙️ Cấu hình nhanh
+              </h4>
+              {activeTemplate === 'prompt' && (
+                <>
+                  <div className="form-group" style={{ gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 500 }}>Ý tưởng video (Prompt):</label>
+                    <textarea 
+                      className="form-textarea" 
+                      rows={3} 
+                      style={{ fontSize: '12px', padding: '6px 8px' }}
+                      value={promptValue} 
+                      onChange={(e) => setPromptValue(e.target.value)} 
+                      placeholder="Nhập ý tưởng video của bạn..."
+                    />
+                  </div>
+                  <div className="form-group" style={{ gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 500 }}>Giọng điệu kịch bản:</label>
+                    <select 
+                      className="form-select" 
+                      style={{ fontSize: '12px', padding: '4px 8px', height: '30px' }}
+                      value={aiTone} 
+                      onChange={(e) => setAiTone(e.target.value)}
+                    >
+                      <option value="truyen-cam">Truyền cảm, sâu lắng</option>
+                      <option value="hai-huoc">Hài hước, dí dỏm</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 500 }}>Tỷ lệ khung hình:</label>
+                    <select 
+                      className="form-select" 
+                      style={{ fontSize: '12px', padding: '4px 8px', height: '30px' }}
+                      value={aspectRatio} 
+                      onChange={(e) => setAspectRatio(e.target.value)}
+                    >
+                      <option value="16:9">Ngang (16:9) - YouTube</option>
+                      <option value="9:16">Dọc (9:16) - TikTok / Shorts</option>
+                      <option value="1:1">Vuông (1:1) - FB Feed</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {activeTemplate === 'doc' && (
+                <>
+                  <div className="form-group" style={{ gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 500 }}>Tên file đính kèm:</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      style={{ fontSize: '12px', padding: '6px 8px' }}
+                      value={docValue} 
+                      onChange={(e) => setDocValue(e.target.value)}
+                      placeholder="VD: kich_ban.txt"
+                    />
+                    <label className="btn-primary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, background: 'var(--primary)', color: 'white', marginTop: '4px' }}>
+                      <Upload size={12} style={{ marginRight: '4px' }} /> Chọn tệp tóm tắt (.txt/.pdf)
+                      <input type="file" style={{ display: 'none' }} onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setDocValue(file.name);
+                          addLog(`Đã đính kèm tệp tài liệu: ${file.name}`, 'info');
+                        }
+                      }} />
+                    </label>
+                  </div>
+                  <div className="form-group" style={{ gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 500 }}>Giọng điệu kịch bản:</label>
+                    <select 
+                      className="form-select" 
+                      style={{ fontSize: '12px', padding: '4px 8px', height: '30px' }}
+                      value={aiTone} 
+                      onChange={(e) => setAiTone(e.target.value)}
+                    >
+                      <option value="truyen-cam">Nghị luận thuyết phục</option>
+                      <option value="hai-huoc">Kể chuyện vui vẻ</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {activeTemplate === 'blog' && (
+                <>
+                  <div className="form-group" style={{ gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 500 }}>Liên kết bài viết (Blog URL):</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      style={{ fontSize: '12px', padding: '6px 8px' }}
+                      value={urlValue} 
+                      onChange={(e) => setUrlValue(e.target.value)}
+                      placeholder="https://example.com/tin-tuc"
+                    />
+                  </div>
+                  <div className="form-group" style={{ gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 500 }}>Chọn giọng đọc lồng tiếng:</label>
+                    <select 
+                      className="form-select" 
+                      style={{ fontSize: '12px', padding: '4px 8px', height: '30px' }}
+                      value={ttsVoice} 
+                      onChange={(e) => setTtsVoice(e.target.value)}
+                    >
+                      <option value="nu-mien-bac">Vy Mai (Nữ miền Bắc)</option>
+                      <option value="nam-mien-nam">Minh Hoàng (Nam miền Nam)</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <button 
+                className="btn btn-primary" 
+                style={{ 
+                  marginTop: '6px', 
+                  justifyContent: 'center', 
+                  fontSize: '12px', 
+                  fontWeight: 600, 
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                  color: 'white', 
+                  border: 'none', 
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                  padding: '8px'
+                }} 
+                onClick={runWorkflow}
+                disabled={isRunning}
+              >
+                <Play size={12} fill="white" />
+                {isRunning ? 'Đang chạy...' : 'Chạy Nhanh (Quick Run)'}
+              </button>
             </div>
             <div className="sidebar-header" style={{ marginTop: '8px' }}>
               Nút Quy trình
@@ -1907,6 +2154,16 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             </div>
           </div>
 
+          <div 
+            className="sidebar-resizer" 
+            onMouseDown={startResizingLeft}
+            style={{
+              order: isSidebarSwapped ? 5 : 3,
+              borderLeft: isSidebarSwapped ? 'none' : '1px solid var(--border-dark)',
+              borderRight: isSidebarSwapped ? '1px solid var(--border-dark)' : 'none',
+            }}
+          />
+
           {/* Center Canvas */}
           <div 
             className="canvas-wrapper"
@@ -1920,6 +2177,23 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             </div>
             {/* Canvas floating toolbar */}
             <div className="canvas-toolbar">
+              <button className="canvas-toolbar-btn" onClick={handleUndo} title="Hoàn tác (Undo)">
+                <RotateCcw size={14} />
+                Hoàn tác
+              </button>
+              
+              <button className="canvas-toolbar-btn" onClick={loadCanvasTemplate} title="Mở sơ đồ (JSON)">
+                <Upload size={14} style={{ transform: 'none' }} />
+                Mở sơ đồ
+              </button>
+
+              <button className="canvas-toolbar-btn" onClick={saveCanvasTemplate} title="Lưu sơ đồ thiết kế về máy (JSON)">
+                <Download size={14} />
+                Lưu mẫu sơ đồ
+              </button>
+
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-dark)', margin: '0 4px' }} />
+
               <div style={{ position: 'relative' }}>
                 <button 
                   className="canvas-toolbar-btn" 
@@ -2810,7 +3084,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                       {/* Thẻ trạng thái các Agent */}
                       <div className="agent-cards-row">
                         {/* Biên kịch */}
-                        <div className={`agent-card ${agentStatuses.writer !== 'idle' ? 'active' : ''}`}>
+                        <div className={`agent-card ${agentStatuses.writer !== 'idle' ? 'writer-active' : ''}`}>
                           <div className="agent-card-header">
                             <div className="agent-avatar-circle" style={{ backgroundColor: '#a855f7' }}>BK</div>
                             <span className="agent-card-title">Biên Kịch</span>
@@ -2852,7 +3126,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         </div>
 
                         {/* Đạo diễn hình ảnh */}
-                        <div className={`agent-card ${agentStatuses.director !== 'idle' ? 'active' : ''}`}>
+                        <div className={`agent-card ${agentStatuses.director !== 'idle' ? 'director-active' : ''}`}>
                           <div className="agent-card-header">
                             <div className="agent-avatar-circle" style={{ backgroundColor: '#3b82f6' }}>ĐD</div>
                             <span className="agent-card-title">Đạo Diễn Visual</span>
@@ -2894,7 +3168,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         </div>
 
                         {/* Âm thanh / TTS */}
-                        <div className={`agent-card ${agentStatuses.voice !== 'idle' ? 'active' : ''}`}>
+                        <div className={`agent-card ${agentStatuses.voice !== 'idle' ? 'voice-active' : ''}`}>
                           <div className="agent-card-header">
                             <div className="agent-avatar-circle" style={{ backgroundColor: '#f97316' }}>AT</div>
                             <span className="agent-card-title">Lồng Tiếng AI</span>
