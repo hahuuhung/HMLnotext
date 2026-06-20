@@ -111,6 +111,24 @@ interface RenderConfig {
   outputDir?: string;
 }
 
+interface ToolParam {
+  name: string;
+  type: 'string' | 'number' | 'boolean';
+  description: string;
+  required: boolean;
+}
+
+interface Tool {
+  id: string;
+  name: string;
+  type: 'google_search' | 'api' | 'llm' | 'custom_code';
+  description: string;
+  systemPrompt: string;
+  endpointUrl?: string;
+  params: ToolParam[];
+  isActive: boolean;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -307,7 +325,318 @@ function WorkflowBuilder() {
   const [workflowCompleted, setWorkflowCompleted] = useState(initialProject.workflowCompleted);
   const [watchPath, setWatchPath] = useState('');
   
-  const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive'>('workflow');
+  const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive' | 'tools'>('workflow');
+
+  // Tools states
+  const [tools, setTools] = useState<Tool[]>(() => {
+    const saved = localStorage.getItem('hml_tools');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.warn("Failed to parse saved tools", e);
+      }
+    }
+    return [
+      {
+        id: 'tool-search',
+        name: 'Google Search API',
+        type: 'google_search',
+        description: 'Tra cứu tin tức thời gian thực để tạo bối cảnh kịch bản cập nhật nhất.',
+        systemPrompt: 'Dùng để tìm kiếm các bài viết tin tức mới nhất về chủ đề cà phê phin, văn hóa Việt Nam hoặc các sự kiện nổi bật khác.',
+        params: [
+          { name: 'query', type: 'string', description: 'Từ khóa tìm kiếm trên Google', required: true }
+        ],
+        isActive: true
+      },
+      {
+        id: 'tool-llm',
+        name: 'LLM Script Writer Helper',
+        type: 'llm',
+        description: 'Phát triển dàn ý thô sơ thành lời thoại dẫn chi tiết cho từng phân cảnh.',
+        systemPrompt: 'Biến đổi dàn ý phân cảnh thành lời thoại truyền cảm, dí dỏm, tối ưu cho video ngắn 9:16.',
+        params: [
+          { name: 'outline', type: 'string', description: 'Dàn ý hoặc ý tưởng thô sơ', required: true },
+          { name: 'tone', type: 'string', description: 'Giọng điệu kịch bản (truyen-cam / hai-huoc)', required: false }
+        ],
+        isActive: true
+      },
+      {
+        id: 'tool-visual',
+        name: 'Stable Diffusion Generator',
+        type: 'llm',
+        description: 'Vẽ tranh minh họa AI chất lượng cao khớp với văn bản bối cảnh của cảnh quay.',
+        systemPrompt: 'Tự động biên dịch mô tả cảnh quay thành prompt vẽ ảnh 3D/Cinematic chi tiết cho Stable Diffusion/Midjourney.',
+        params: [
+          { name: 'sceneText', type: 'string', description: 'Văn bản mô tả nội dung cảnh quay', required: true },
+          { name: 'style', type: 'string', description: 'Phong cách nghệ thuật hình ảnh', required: true }
+        ],
+        isActive: true
+      },
+      {
+        id: 'tool-tts',
+        name: 'TTS Voice Synthesizer',
+        type: 'api',
+        endpointUrl: 'https://api.hml.vn/v1/tts',
+        description: 'API chuyển đổi văn bản kịch bản phân cảnh thành tệp âm thanh lồng tiếng.',
+        systemPrompt: 'Gửi request chứa lời thoại đến máy chủ Viettel AI/FPT.AI để nhận về file âm thanh thoại MP3.',
+        params: [
+          { name: 'text', type: 'string', description: 'Văn bản lời thoại cần đọc', required: true },
+          { name: 'voice', type: 'string', description: 'Giọng đọc miền Bắc/miền Nam', required: true },
+          { name: 'speed', type: 'string', description: 'Tốc độ giọng đọc (0.9x -> 1.5x)', required: false }
+        ],
+        isActive: true
+      },
+      {
+        id: 'tool-webhook',
+        name: 'Social Auto-Publish Webhook',
+        type: 'api',
+        endpointUrl: 'https://api.tiktok.com/publish/video',
+        description: 'Đăng tải video thành phẩm lên TikTok / YouTube Shorts tự động.',
+        systemPrompt: 'Gửi file video MP4 đã render lên webhook API để đăng bài tự động kèm hashtag.',
+        params: [
+          { name: 'videoUrl', type: 'string', description: 'Đường dẫn video MP4 trên cloud', required: true },
+          { name: 'caption', type: 'string', description: 'Mô tả đăng bài kèm hashtag', required: true }
+        ],
+        isActive: false
+      }
+    ];
+  });
+
+  const [selectedToolId, setSelectedToolId] = useState<string>('tool-search');
+  
+  // States for Prompt AI Helper and Testing playground
+  const [aiPromptInput, setAiPromptInput] = useState('');
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [testParams, setTestParams] = useState<Record<string, string>>({});
+  const [testOutput, setTestOutput] = useState<string>('');
+  const [isTestingTool, setIsTestingTool] = useState(false);
+
+  // Sync tools to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('hml_tools', JSON.stringify(tools));
+  }, [tools]);
+
+  const handleToggleTool = (toolId: string) => {
+    setTools(prev => prev.map(t => t.id === toolId ? { ...t, isActive: !t.isActive } : t));
+    const targetTool = tools.find(t => t.id === toolId);
+    if (targetTool) {
+      addLog(`Đã ${!targetTool.isActive ? 'Kích hoạt' : 'Hủy kích hoạt'} công cụ: "${targetTool.name}"`, 'info');
+    }
+  };
+
+  const handleSelectTool = (toolId: string) => {
+    setSelectedToolId(toolId);
+    setTestParams({});
+    setTestOutput('');
+  };
+
+  const handleUpdateToolField = <K extends keyof Tool>(toolId: string, key: K, value: Tool[K]) => {
+    setTools(prev => prev.map(t => t.id === toolId ? { ...t, [key]: value } : t));
+  };
+
+  const handleCreateTool = () => {
+    const newId = `tool-custom-${Date.now()}`;
+    const newTool: Tool = {
+      id: newId,
+      name: `Công cụ Mới #${tools.length + 1}`,
+      type: 'api',
+      description: 'Công cụ tích hợp Webhook API tùy chỉnh cho AI Agent.',
+      systemPrompt: 'Khi Agent gọi công cụ này, gửi tham số tới URL endpoint cấu hình.',
+      endpointUrl: 'https://api.example.com/v1/action',
+      params: [
+        { name: 'input_text', type: 'string', description: 'Nội dung đầu vào', required: true }
+      ],
+      isActive: true
+    };
+    setTools(prev => [...prev, newTool]);
+    setSelectedToolId(newId);
+    setTestParams({});
+    setTestOutput('');
+    addLog(`Đã tạo công cụ mới: "${newTool.name}"`, 'success');
+  };
+
+  const handleDeleteTool = (toolId: string) => {
+    if (tools.length <= 1) {
+      addLog('Không thể xóa công cụ cuối cùng!', 'warning');
+      return;
+    }
+    const idx = tools.findIndex(t => t.id === toolId);
+    const newTools = tools.filter(t => t.id !== toolId);
+    setTools(newTools);
+    if (selectedToolId === toolId) {
+      const nextActive = newTools[idx === 0 ? 0 : idx - 1];
+      setSelectedToolId(nextActive.id);
+      setTestParams({});
+      setTestOutput('');
+    }
+    addLog('Đã xóa công cụ thành công.', 'warning');
+  };
+
+  const handleAddParam = (toolId: string) => {
+    setTools(prev => prev.map(t => {
+      if (t.id === toolId) {
+        return {
+          ...t,
+          params: [...t.params, { name: `param_${t.params.length + 1}`, type: 'string', description: 'Tham số mới', required: false }]
+        };
+      }
+      return t;
+    }));
+    addLog('Đã thêm tham số mới', 'info');
+  };
+
+  const handleUpdateParam = (toolId: string, index: number, field: keyof ToolParam, value: any) => {
+    setTools(prev => prev.map(t => {
+      if (t.id === toolId) {
+        const newParams = [...t.params];
+        newParams[index] = { ...newParams[index], [field]: value };
+        return { ...t, params: newParams };
+      }
+      return t;
+    }));
+  };
+
+  const handleDeleteParam = (toolId: string, index: number) => {
+    setTools(prev => prev.map(t => {
+      if (t.id === toolId) {
+        const newParams = t.params.filter((_, i) => i !== index);
+        return { ...t, params: newParams };
+      }
+      return t;
+    }));
+    addLog('Đã xóa tham số', 'warning');
+  };
+
+  const handleGeneratePrompt = () => {
+    if (!aiPromptInput.trim()) return;
+    setIsGeneratingPrompt(true);
+    setTimeout(() => {
+      const idea = aiPromptInput.toLowerCase();
+      let generatedDesc = "Mô tả công cụ tự động sinh bởi AI.";
+      let generatedPrompt = "System prompt của công cụ sinh bởi AI.";
+
+      if (idea.includes("weather") || idea.includes("thời tiết")) {
+        generatedDesc = "Tra cứu thông tin thời tiết hiện tại cho một địa điểm cụ thể.";
+        generatedPrompt = "Khi người dùng yêu cầu kiểm tra thời tiết, hãy gọi API này để lấy nhiệt độ, độ ẩm và dự báo thời tiết của địa phương đó.";
+      } else if (idea.includes("stock") || idea.includes("chứng khoán") || idea.includes("giá cổ phiếu")) {
+        generatedDesc = "Lấy dữ liệu giá cổ phiếu thời gian thực từ sàn giao dịch tài chính.";
+        generatedPrompt = "Khi cần phân tích giá cổ phiếu, hãy cung cấp mã cổ phiếu. API sẽ trả về giá mở cửa, giá đóng cửa, khối lượng giao dịch và xu hướng biến động.";
+      } else if (idea.includes("shopee") || idea.includes("sản phẩm") || idea.includes("tiki") || idea.includes("lazada")) {
+        generatedDesc = "Kiểm tra tình trạng còn hàng và giá bán của sản phẩm trên sàn thương mại điện tử.";
+        generatedPrompt = "Gọi API này để kiểm tra xem sản phẩm có còn hàng không, giá hiện tại bao nhiêu và có chương trình khuyến mãi nào đang diễn ra hay không.";
+      } else {
+        generatedDesc = `Công cụ hỗ trợ: ${aiPromptInput}`;
+        generatedPrompt = `Bạn là một trợ lý thông minh điều phối công cụ này. Khi nhận được yêu cầu liên quan đến '${aiPromptInput}', hãy chuẩn bị các tham số và thực thi API để trả về kết quả cấu trúc phù hợp.`;
+      }
+
+      setTools(prev => prev.map(t => {
+        if (t.id === selectedToolId) {
+          return { ...t, description: generatedDesc, systemPrompt: generatedPrompt };
+        }
+        return t;
+      }));
+      
+      addLog("Trợ lý AI đã sinh thành công Prompt và Mô tả công cụ!", "success");
+      setIsGeneratingPrompt(false);
+    }, 1200);
+  };
+
+  const handleTestTool = () => {
+    setIsTestingTool(true);
+    setTestOutput("Đang kết nối tới máy chủ và thực thi công cụ...\n");
+    setTimeout(() => {
+      const currentTool = tools.find(t => t.id === selectedToolId);
+      if (!currentTool) {
+        setTestOutput(JSON.stringify({ error: "Không tìm thấy công cụ" }, null, 2));
+        setIsTestingTool(false);
+        return;
+      }
+
+      const missingParams = currentTool.params
+        .filter(p => p.required && !testParams[p.name])
+        .map(p => p.name);
+
+      if (missingParams.length > 0) {
+        setTestOutput(JSON.stringify({
+          success: false,
+          error: `Thiếu tham số bắt buộc: ${missingParams.join(", ")}`
+        }, null, 2));
+        addLog(`Chạy thử thất bại: Thiếu tham số bắt buộc.`, "error");
+        setIsTestingTool(false);
+        return;
+      }
+
+      let mockResult: any = {
+        success: true,
+        timestamp: new Date().toISOString(),
+        tool_executed: currentTool.name,
+        inputs: testParams,
+        outputs: {}
+      };
+
+      if (currentTool.type === 'google_search') {
+        mockResult.outputs = {
+          query: testParams.query || "cà phê phin Việt Nam",
+          total_results: 142000,
+          organic_results: [
+            { title: "Cách pha cà phê phin đậm đà chuẩn vị Việt", snippet: "Hướng dẫn chi tiết cách chọn bột cà phê, tỷ lệ nước và cách ủ cà phê phin ngon nhất.", link: "https://example.com/pha-cafe-phin" },
+            { title: "Lịch sử cà phê phin tại Việt Nam", snippet: "Cà phê phin du nhập vào Việt Nam từ thời Pháp thuộc và đã biến đổi thành một nét văn hóa độc đáo...", link: "https://example.com/lich-su-cafe" }
+          ]
+        };
+      } else if (currentTool.type === 'llm') {
+        if (currentTool.id === 'tool-visual') {
+          mockResult.outputs = {
+            prompt_generated: `${testParams.sceneText || "Cảnh giọt cà phê rơi"}, photorealistic, 8k resolution, cinematic lighting, ${testParams.style || "cinematic"} style`,
+            image_url: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80",
+            width: 1080,
+            height: 1920
+          };
+        } else {
+          mockResult.outputs = {
+            text_output: `[Kịch bản phân cảnh gợi ý] Lời dẫn: Chào mừng bạn đến với hương vị cà phê phin truyền thống. Từng giọt cà phê tí tách rơi mang theo hương thơm nồng nàn của đất trời Tây Nguyên. Tone: ${testParams.tone || "truyen-cam"}.`,
+            token_used: 185
+          };
+        }
+      } else if (currentTool.type === 'api') {
+        if (currentTool.id === 'tool-tts') {
+          mockResult.outputs = {
+            status: "rendered",
+            audio_url: "https://api.hml.vn/v1/tts/output_12345.mp3",
+            duration_seconds: 4.5,
+            voice_used: testParams.voice || "nu-mien-bac",
+            character_count: (testParams.text || "").length
+          };
+        } else if (currentTool.id === 'tool-webhook') {
+          mockResult.outputs = {
+            status: "published",
+            post_id: "tiktok_post_987654321",
+            published_at: new Date().toLocaleString(),
+            video_url: testParams.videoUrl || "https://cloud.hml.vn/video.mp4",
+            caption: testParams.caption || "Cà phê phin Việt Nam #cafe #shorts"
+          };
+        } else {
+          mockResult.outputs = {
+            status: "success",
+            response_code: 200,
+            data: {
+              message: "API executed successfully",
+              received_params: testParams
+            }
+          };
+        }
+      } else {
+        mockResult.outputs = {
+          status: "executed",
+          custom_code_output: "Hello from Custom Code runtime!"
+        };
+      }
+
+      setTestOutput(JSON.stringify(mockResult, null, 2));
+      addLog(`Chạy thử công cụ "${currentTool.name}" thành công!`, "success");
+      setIsTestingTool(false);
+    }, 1000);
+  };
 
   const [promptValue, setPromptValue] = useState(initialProject.promptValue);
   const [docValue, setDocValue] = useState(initialProject.docValue);
@@ -1810,6 +2139,12 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             onClick={() => setEditorMode('kdenlive')}
           >
             Dựng Phim (Shotcut)
+          </button>
+          <button 
+            className={`mode-toggle-btn ${editorMode === 'tools' ? 'active' : ''}`} 
+            onClick={() => setEditorMode('tools')}
+          >
+            Bảng điều khiển Tools
           </button>
         </div>
 
@@ -3338,7 +3673,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             </div>
           </div>
         </div>
-      ) : (
+      ) : editorMode === 'kdenlive' ? (
         /* Shotcut NLE Professional Layout */
         <div className="kdenlive-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', backgroundColor: '#1a1924' }}>
           <div className="kdenlive-top-row" style={{ display: 'flex', flex: 1.2, borderBottom: '2px solid #2e2d3b', minHeight: 0 }}>
@@ -3719,8 +4054,352 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               </div>
             )}
           </div>
-
         </div>
+      ) : (
+        /* Tools Dashboard */
+        (() => {
+          const selectedTool = tools.find(t => t.id === selectedToolId) || tools[0];
+          return (
+            <div className="tools-dashboard-layout">
+              {/* Left Column: Tools List */}
+              <div className="tools-left-panel">
+                <div className="tools-left-header">
+                  <h2 className="tools-left-title">Bảng điều khiển Tools</h2>
+                  <p className="tools-left-subtitle">Quản lý và kiểm thử các công cụ của Agent</p>
+                </div>
+                
+                <div className="tools-list">
+                  {tools.map(tool => {
+                    const isSelected = tool.id === selectedToolId;
+                    return (
+                      <div 
+                        key={tool.id} 
+                        className={`tool-card-item ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleSelectTool(tool.id)}
+                      >
+                        <div className="tool-card-meta">
+                          <span className={`tool-type-badge ${tool.type}`}>
+                            {tool.type === 'google_search' && 'Search'}
+                            {tool.type === 'api' && 'API'}
+                            {tool.type === 'llm' && 'AI/LLM'}
+                            {tool.type === 'custom_code' && 'Code'}
+                          </span>
+                          
+                          {/* Active Toggle */}
+                          <label className="status-switch" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={tool.isActive}
+                              onChange={() => handleToggleTool(tool.id)}
+                            />
+                            <span className="status-slider"></span>
+                          </label>
+                        </div>
+                        
+                        <div className="tool-card-icon-title">
+                          {tool.type === 'google_search' && <Globe size={16} style={{ color: '#1d4ed8' }} />}
+                          {tool.type === 'api' && <Zap size={16} style={{ color: '#047857' }} />}
+                          {tool.type === 'llm' && <Cpu size={16} style={{ color: '#6b21a8' }} />}
+                          {tool.type === 'custom_code' && <Code size={16} style={{ color: '#c2410c' }} />}
+                          <span className="tool-card-title-text">{tool.name}</span>
+                        </div>
+                        
+                        <p className="tool-card-desc-text">{tool.description}</p>
+                      </div>
+                    );
+                  })}
+                  
+                  <button className="tool-create-btn-card" onClick={handleCreateTool}>
+                    <Plus size={16} />
+                    + Tạo Công Cụ Mới
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Configuration & Playground */}
+              {selectedTool ? (
+                <div className="tools-right-panel">
+                  {/* General Config Section */}
+                  <div className="tool-config-section">
+                    <div className="tool-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Settings size={18} style={{ color: 'var(--primary)' }} />
+                        <span>Cấu hình Công cụ: {selectedTool.name}</span>
+                      </div>
+                      <button 
+                        className="btn" 
+                        style={{ color: 'var(--error)', borderColor: 'var(--error-light)', padding: '4px 10px', fontSize: '12px' }}
+                        onClick={() => handleDeleteTool(selectedTool.id)}
+                      >
+                        <Trash2 size={12} /> Xóa công cụ
+                      </button>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Tên Công cụ:</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={selectedTool.name}
+                        onChange={(e) => handleUpdateToolField(selectedTool.id, 'name', e.target.value)}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Loại Công cụ:</label>
+                      <select 
+                        className="form-select"
+                        value={selectedTool.type}
+                        onChange={(e) => handleUpdateToolField(selectedTool.id, 'type', e.target.value as any)}
+                      >
+                        <option value="google_search">Google Search API (Tìm kiếm web)</option>
+                        <option value="api">Webhook API (Gửi HTTP Request)</option>
+                        <option value="llm">AI / LLM Model Helper (Mô hình ngôn ngữ)</option>
+                        <option value="custom_code">Custom JS Code (Chạy mã JavaScript)</option>
+                      </select>
+                    </div>
+
+                    {selectedTool.type === 'api' && (
+                      <div className="form-group">
+                        <label className="form-label">Endpoint URL:</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          value={selectedTool.endpointUrl || ''}
+                          onChange={(e) => handleUpdateToolField(selectedTool.id, 'endpointUrl', e.target.value)}
+                          placeholder="https://api.example.com/v1/endpoint"
+                        />
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label className="form-label">Mô tả công dụng (Description):</label>
+                      <textarea 
+                        className="form-textarea"
+                        rows={2}
+                        value={selectedTool.description}
+                        onChange={(e) => handleUpdateToolField(selectedTool.id, 'description', e.target.value)}
+                        placeholder="Mô tả cho AI Agent hiểu khi nào nên dùng công cụ này..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Input Parameters Config */}
+                  <div className="tool-config-section">
+                    <div className="tool-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Sliders size={18} style={{ color: 'var(--success)' }} />
+                        <span>Tham số Đầu vào (Input Schema)</span>
+                      </div>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ padding: '4px 10px', fontSize: '12px' }}
+                        onClick={() => handleAddParam(selectedTool.id)}
+                      >
+                        <Plus size={12} /> Thêm tham số
+                      </button>
+                    </div>
+
+                    {selectedTool.params.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '16px 0' }}>
+                        Chưa có tham số nào. Nhấn "+ Thêm tham số" để cấu hình.
+                      </div>
+                    ) : (
+                      <table className="params-table">
+                        <thead>
+                          <tr>
+                            <th>Tên tham số</th>
+                            <th>Kiểu</th>
+                            <th>Mô tả chi tiết</th>
+                            <th style={{ width: '100px' }}>Bắt buộc</th>
+                            <th style={{ width: '40px' }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedTool.params.map((param, index) => (
+                            <tr key={index}>
+                              <td>
+                                <input 
+                                  type="text" 
+                                  className="form-input" 
+                                  style={{ padding: '6px 8px', fontSize: '12px' }}
+                                  value={param.name}
+                                  onChange={(e) => handleUpdateParam(selectedTool.id, index, 'name', e.target.value)}
+                                />
+                              </td>
+                              <td>
+                                <select 
+                                  className="form-select"
+                                  style={{ padding: '4px 6px', fontSize: '12px', height: '30px' }}
+                                  value={param.type}
+                                  onChange={(e) => handleUpdateParam(selectedTool.id, index, 'type', e.target.value as any)}
+                                >
+                                  <option value="string">String (Văn bản)</option>
+                                  <option value="number">Number (Số)</option>
+                                  <option value="boolean">Boolean (Đúng/Sai)</option>
+                                </select>
+                              </td>
+                              <td>
+                                <input 
+                                  type="text" 
+                                  className="form-input"
+                                  style={{ padding: '6px 8px', fontSize: '12px' }}
+                                  value={param.description}
+                                  onChange={(e) => handleUpdateParam(selectedTool.id, index, 'description', e.target.value)}
+                                />
+                              </td>
+                              <td>
+                                <label className="status-switch">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={param.required}
+                                    onChange={(e) => handleUpdateParam(selectedTool.id, index, 'required', e.target.checked)}
+                                  />
+                                  <span className="status-slider"></span>
+                                </label>
+                              </td>
+                              <td>
+                                <button 
+                                  className="param-delete-btn"
+                                  onClick={() => handleDeleteParam(selectedTool.id, index)}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+
+                  {/* AI Prompt Generator box */}
+                  <div className="tool-config-section">
+                    <div className="tool-section-title">
+                      <Cpu size={18} style={{ color: '#a855f7' }} />
+                      <span>Trợ lý sinh mô tả & Prompt AI cho Tool</span>
+                    </div>
+
+                    <div className="ai-assistant-box">
+                      <div className="ai-assistant-header">
+                        <Cpu size={14} />
+                        <span>Trợ lý LLM Generator</span>
+                      </div>
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                        Nhập ý tưởng hoạt động của công cụ bằng ngôn ngữ tự nhiên. Trợ lý AI sẽ tự động sinh mô tả chức năng và System Prompt hướng dẫn cách Agent gọi công cụ này.
+                      </p>
+                      
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <textarea 
+                          className="form-textarea"
+                          rows={2}
+                          style={{ flex: 1, fontSize: '13px' }}
+                          value={aiPromptInput}
+                          onChange={(e) => setAiPromptInput(e.target.value)}
+                          placeholder="Ví dụ: Tạo công cụ giúp tôi tra cứu giá vàng hôm nay tại Việt Nam..."
+                        />
+                        <button 
+                          className="btn btn-primary"
+                          style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)', color: 'white', border: 'none', padding: '12px 16px' }}
+                          onClick={handleGeneratePrompt}
+                          disabled={isGeneratingPrompt || !aiPromptInput.trim()}
+                        >
+                          {isGeneratingPrompt ? 'Đang sinh...' : '🤖 Sinh Prompt'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">System Prompt hướng dẫn Agent gọi Tool:</label>
+                      <textarea 
+                        className="form-textarea"
+                        rows={4}
+                        style={{ fontFamily: 'var(--font-sans)', fontSize: '13px' }}
+                        value={selectedTool.systemPrompt}
+                        onChange={(e) => handleUpdateToolField(selectedTool.id, 'systemPrompt', e.target.value)}
+                        placeholder="System instructions cho Agent biết cách sử dụng và phản hồi của tool..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Playground Testing Section */}
+                  <div className="tool-config-section" style={{ marginBottom: '24px' }}>
+                    <div className="tool-section-title">
+                      <Play size={18} style={{ color: 'var(--warning)' }} />
+                      <span>Playground (Chạy thử & Kiểm tra phản hồi)</span>
+                    </div>
+
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0 }}>
+                      Kiểm thử phản hồi JSON của công cụ bằng cách điền các tham số dưới đây.
+                    </p>
+
+                    {selectedTool.params.length === 0 ? (
+                      <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                        Không có tham số nào cần truyền.
+                      </div>
+                    ) : (
+                      <div className="playground-grid">
+                        {selectedTool.params.map(param => (
+                          <div className="form-group" key={param.name}>
+                            <label className="form-label">
+                              {param.name} {param.required && <span style={{ color: 'var(--error)' }}>*</span>}
+                              <span style={{ fontSize: '11px', fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                                ({param.type})
+                              </span>
+                            </label>
+                            
+                            {param.type === 'boolean' ? (
+                              <select 
+                                className="form-select"
+                                value={testParams[param.name] || 'false'}
+                                onChange={(e) => setTestParams(prev => ({ ...prev, [param.name]: e.target.value }))}
+                              >
+                                <option value="false">False (Sai)</option>
+                                <option value="true">True (Đúng)</option>
+                              </select>
+                            ) : (
+                              <input 
+                                type={param.type === 'number' ? 'number' : 'text'}
+                                className="form-input"
+                                value={testParams[param.name] || ''}
+                                onChange={(e) => setTestParams(prev => ({ ...prev, [param.name]: e.target.value }))}
+                                placeholder={param.description}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '8px' }}>
+                      <button 
+                        className="btn btn-primary"
+                        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', border: 'none' }}
+                        onClick={handleTestTool}
+                        disabled={isTestingTool}
+                      >
+                        {isTestingTool ? 'Đang chạy thử...' : '▶ Chạy thử công cụ'}
+                      </button>
+                    </div>
+
+                    {testOutput && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                        <label className="form-label">Phản hồi JSON kết quả:</label>
+                        <div className="playground-console">
+                          {testOutput}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                  Vui lòng chọn hoặc tạo công cụ để bắt đầu cấu hình.
+                </div>
+              )}
+            </div>
+          );
+        })()
       )}
       {toastMessage && (
         <div className="toast-container">
