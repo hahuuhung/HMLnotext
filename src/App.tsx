@@ -325,7 +325,155 @@ function WorkflowBuilder() {
   const [workflowCompleted, setWorkflowCompleted] = useState(initialProject.workflowCompleted);
   const [watchPath, setWatchPath] = useState('');
   
-  const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive' | 'tools'>('workflow');
+  const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive' | 'tools' | 'agent-flow'>('workflow');
+
+  // Panel dimensions (resizable like VS Code)
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(260);
+  const [shotcutLeftWidth, setShotcutLeftWidth] = useState(320);
+  const [shotcutRightWidth, setShotcutRightWidth] = useState(320);
+  const [shotcutTimelineHeight, setShotcutTimelineHeight] = useState(280);
+
+  // Seafood sauce visual generator app states
+  const [fbBrandName, setFbBrandName] = useState('Nước Chấm Biển Xanh');
+  const [fbBenefit, setFbBenefit] = useState('Chua cay mặn ngọt, dậy vị hải sản tươi');
+  const [fbStyle, setFbStyle] = useState<'restaurant' | 'flatlay' | 'instagram'>('restaurant');
+  const [fbPhoto, setFbPhoto] = useState<string>('');
+  const [fbStatus, setFbStatus] = useState<'idle' | 'cleaning' | 'placing' | 'lighting' | 'done'>('idle');
+  const [fbGeneratedImages, setFbGeneratedImages] = useState<string[]>([]);
+
+  // Drag resizing handlers
+  const startResizingBottom = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    const startHeight = bottomPanelHeight;
+    const startY = mouseDownEvent.clientY;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const currentY = mouseMoveEvent.clientY;
+      const deltaY = currentY - startY;
+      setBottomPanelHeight(Math.max(120, Math.min(600, startHeight - deltaY)));
+    };
+
+    const stopDrag = () => {
+      window.removeEventListener('mousemove', doDrag);
+      window.removeEventListener('mouseup', stopDrag);
+    };
+
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('mouseup', stopDrag);
+  }, [bottomPanelHeight]);
+
+  const startResizingShotcutLeft = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    const startWidth = shotcutLeftWidth;
+    const startX = mouseDownEvent.clientX;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const currentX = mouseMoveEvent.clientX;
+      const deltaX = currentX - startX;
+      setShotcutLeftWidth(Math.max(180, Math.min(500, startWidth + deltaX)));
+    };
+
+    const stopDrag = () => {
+      window.removeEventListener('mousemove', doDrag);
+      window.removeEventListener('mouseup', stopDrag);
+    };
+
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('mouseup', stopDrag);
+  }, [shotcutLeftWidth]);
+
+  const startResizingShotcutRight = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    const startWidth = shotcutRightWidth;
+    const startX = mouseDownEvent.clientX;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const currentX = mouseMoveEvent.clientX;
+      const deltaX = currentX - startX;
+      setShotcutRightWidth(Math.max(180, Math.min(500, startWidth - deltaX)));
+    };
+
+    const stopDrag = () => {
+      window.removeEventListener('mousemove', doDrag);
+      window.removeEventListener('mouseup', stopDrag);
+    };
+
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('mouseup', stopDrag);
+  }, [shotcutRightWidth]);
+
+  const startResizingShotcutTimeline = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    const startHeight = shotcutTimelineHeight;
+    const startY = mouseDownEvent.clientY;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const currentY = mouseMoveEvent.clientY;
+      const deltaY = currentY - startY;
+      setShotcutTimelineHeight(Math.max(150, Math.min(600, startHeight - deltaY)));
+    };
+
+    const stopDrag = () => {
+      window.removeEventListener('mousemove', doDrag);
+      window.removeEventListener('mouseup', stopDrag);
+    };
+
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('mouseup', stopDrag);
+  }, [shotcutTimelineHeight]);
+
+  const handleGenerateFBVisual = () => {
+    if (!fbPhoto) {
+      alert("Vui lòng chọn hoặc tải lên ảnh sản phẩm!");
+      return;
+    }
+    setFbStatus('cleaning');
+    setFbGeneratedImages([]);
+    
+    // Simulate background removal stage
+    setTimeout(() => {
+      setFbStatus('placing');
+      
+      // Simulate scene integration stage
+      setTimeout(() => {
+        setFbStatus('lighting');
+        
+        // Simulate shadow and lighting adjustment stage
+        setTimeout(() => {
+          setFbStatus('done');
+          
+          // Set mock variants matching selected style
+          let variants: string[] = [];
+          if (fbStyle === 'restaurant') {
+            variants = [
+              'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80',
+              'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80',
+              'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600&q=80'
+            ];
+          } else if (fbStyle === 'flatlay') {
+            variants = [
+              'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
+              'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&q=80',
+              'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80'
+            ];
+          } else { // instagram
+            variants = [
+              'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&q=80',
+              'https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=600&q=80',
+              'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80'
+            ];
+          }
+          setFbGeneratedImages(variants);
+          addLog(`Công cụ đã tạo thành công 3 biến thể hình ảnh visual cho "${fbBrandName}"!`, "success");
+        }, 1200);
+      }, 1000);
+    }, 1000);
+  };
+
+  const handleDownloadVariant = (variantUrl: string, ratio: string) => {
+    addLog(`Đang tải ảnh biến thể tỉ lệ ${ratio} (URL: ${variantUrl}) về máy...`, "success");
+    alert(`Đã tải xuống ảnh biến thể với tỉ lệ ${ratio} thành công!`);
+  };
 
   // Tools states
   const [tools, setTools] = useState<Tool[]>(() => {
@@ -687,6 +835,7 @@ function WorkflowBuilder() {
   const [trackVisibility, setTrackVisibility] = useState({ visual: true, fx: true, subtitle: true });
 
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [isLooping, setIsLooping] = useState(false);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
 
@@ -1089,10 +1238,14 @@ function WorkflowBuilder() {
         startTimestamp = timestamp;
         
         if (nextTime >= totalDuration) {
-          setIsPlayingPreview(false);
-          setPeakL(0);
-          setPeakR(0);
-          return 0;
+          if (isLooping) {
+            return 0;
+          } else {
+            setIsPlayingPreview(false);
+            setPeakL(0);
+            setPeakR(0);
+            return 0;
+          }
         }
         return nextTime;
       });
@@ -1123,7 +1276,7 @@ function WorkflowBuilder() {
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId);
     };
-  }, [isPlayingPreview, workflowCompleted, totalDuration, trackMutes.audio]);
+  }, [isPlayingPreview, workflowCompleted, totalDuration, trackMutes.audio, isLooping]);
 
 
   // Map currentTime to active scene index
@@ -2126,7 +2279,6 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           </button>
         </div>
 
-        {/* Toggle Mode Buttons style in Kdenlive style */}
         <div className="mode-toggle-group" style={{ marginRight: '16px' }}>
           <button 
             className={`mode-toggle-btn ${editorMode === 'workflow' ? 'active' : ''}`} 
@@ -2145,6 +2297,12 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             onClick={() => setEditorMode('tools')}
           >
             Bảng điều khiển Tools
+          </button>
+          <button 
+            className={`mode-toggle-btn ${editorMode === 'agent-flow' ? 'active' : ''}`} 
+            onClick={() => setEditorMode('agent-flow')}
+          >
+            Điều phối Agent AI
           </button>
         </div>
 
@@ -2502,7 +2660,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           {/* Center Canvas */}
           <div 
             className="canvas-wrapper"
-            style={{ borderRadius: '16px', margin: '8px 0', border: '1px solid var(--border-dark)', overflow: 'hidden', flex: 1, order: 4 }}
+            style={{ borderRadius: '16px', margin: '8px 0', border: '1px solid var(--border-dark)', overflow: 'hidden', flex: 1, order: 4, marginBottom: `${bottomPanelHeight + 8}px` }}
             onDragOver={onDragOver}
             onDrop={onDrop}
           >
@@ -3325,7 +3483,16 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           </div>
 
           {/* Bottom Panel */}
-          <div className="bottom-panel">
+          <div 
+            className="panel-resizer-horizontal" 
+            onMouseDown={startResizingBottom}
+            style={{
+              left: `${leftSidebarWidth + 60}px`,
+              right: `${rightSidebarWidth}px`,
+              bottom: `${bottomPanelHeight}px`
+            }}
+          />
+          <div className="bottom-panel" style={{ height: `${bottomPanelHeight}px`, left: `${leftSidebarWidth + 60}px`, right: `${rightSidebarWidth}px` }}>
             <div className="bottom-tab-container">
               <div className="bottom-tabs-header">
                 <button className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>
@@ -3675,51 +3842,80 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
         </div>
       ) : editorMode === 'kdenlive' ? (
         /* Shotcut NLE Professional Layout */
-        <div className="kdenlive-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', backgroundColor: '#1a1924' }}>
-          <div className="kdenlive-top-row" style={{ display: 'flex', flex: 1.2, borderBottom: '2px solid #2e2d3b', minHeight: 0 }}>
+        <div className="kdenlive-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', backgroundColor: '#1e1e1e', color: '#e2e0e8' }}>
+          
+          {/* Top Menu Bar */}
+          <div className="shotcut-menu-bar" style={{ display: 'flex', gap: '16px', background: '#151419', borderBottom: '1px solid #2d2b38', padding: '4px 16px', fontSize: '12px' }}>
+            <span className="shotcut-menu-item" style={{ cursor: 'pointer', opacity: 0.85 }}>File</span>
+            <span className="shotcut-menu-item" style={{ cursor: 'pointer', opacity: 0.85 }}>Edit</span>
+            <span className="shotcut-menu-item" style={{ cursor: 'pointer', opacity: 0.85 }}>View</span>
+            <span className="shotcut-menu-item" style={{ cursor: 'pointer', opacity: 0.85 }}>Settings</span>
+            <span className="shotcut-menu-item" style={{ cursor: 'pointer', opacity: 0.85 }}>Help</span>
+          </div>
+
+          {/* Top Toolbar */}
+          <div className="shotcut-toolbar" style={{ display: 'flex', gap: '8px', background: '#1c1b22', borderBottom: '1px solid #2d2b38', padding: '6px 16px', alignItems: 'center' }}>
+            <button className="shotcut-toolbar-btn" onClick={() => addLog("Mở tệp tin nguồn video...", "info")} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><Upload size={13} /> Mở Tệp</button>
+            <button className="shotcut-toolbar-btn" onClick={saveWorkflowManual} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><Save size={13} /> Lưu</button>
+            <button className="shotcut-toolbar-btn" onClick={handleUndo} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><RotateCcw size={13} /> Undo</button>
+            <button className="shotcut-toolbar-btn" onClick={() => addLog("Tính năng Redo sẽ khả dụng ở bản cập nhật tới", "warning")} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><RotateCcw size={13} style={{ transform: 'scaleX(-1)' }} /> Redo</button>
+            <div className="shotcut-toolbar-divider" style={{ width: '1px', height: '16px', backgroundColor: '#3d3b4f', margin: '0 4px' }} />
+            <button className={`shotcut-toolbar-btn ${leftTab === 'playlist' ? 'active' : ''}`} onClick={() => setLeftTab('playlist')} style={{ background: leftTab === 'playlist' ? '#3d3b4f' : 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><Grid size={13} /> Playlist</button>
+            <button className={`shotcut-toolbar-btn ${leftTab === 'filters' ? 'active' : ''}`} onClick={() => setLeftTab('filters')} style={{ background: leftTab === 'filters' ? '#3d3b4f' : 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><Sliders size={13} /> Bộ lọc</button>
+            <button className={`shotcut-toolbar-btn ${leftTab === 'history' ? 'active' : ''}`} onClick={() => setLeftTab('history')} style={{ background: leftTab === 'history' ? '#3d3b4f' : 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><RotateCcw size={13} /> Lịch sử</button>
+            <div className="shotcut-toolbar-divider" style={{ width: '1px', height: '16px', backgroundColor: '#3d3b4f', margin: '0 4px' }} />
+            <button className="shotcut-toolbar-btn" onClick={() => {
+              if (workflowCompleted) {
+                addLog("Bắt đầu tác vụ xuất video (Render Export)...", "info");
+                const jobId = `job-${Date.now()}`;
+                const newJob = { id: jobId, name: `Xuất_${promptValue.slice(0, 10)}.mp4`, progress: 0, status: 'Đang chạy' };
+                setExportJobs(prev => [...prev, newJob]);
+                addHistory(`Khởi tạo tiến trình xuất video: ${newJob.name}`);
+                let prog = 0;
+                const interval = setInterval(() => {
+                  prog += 20;
+                  setExportJobs(prev => prev.map(j => j.id === jobId ? { ...j, progress: prog, status: prog === 100 ? 'Hoàn thành' : 'Đang xử lý' } : j));
+                  if (prog >= 100) {
+                    clearInterval(interval);
+                    addHistory(`Đã xuất bản thành công file: ${newJob.name}`);
+                  }
+                }, 800);
+              } else {
+                alert("Hãy chạy workflow để tạo video trước khi xuất bản!");
+              }
+            }} disabled={!workflowCompleted} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', opacity: workflowCompleted ? 1 : 0.4 }}><Download size={13} /> Export</button>
+          </div>
+
+          {/* Main NLE Work Area */}
+          <div className="kdenlive-top-row" style={{ display: 'flex', flex: 1, borderBottom: '1px solid #3d3b4f', minHeight: 0, position: 'relative' }}>
             
-            {/* 1. Left Sidebar: Playlist / Filters / History */}
-            <div className="project-bin" style={{ flex: 1.2, display: 'flex', flexDirection: 'column', borderRight: '1px solid #2e2d3b', minHeight: 0 }}>
+            {/* 1. Playlist / Filters / History sidebar */}
+            <div className="project-bin" style={{ width: `${shotcutLeftWidth}px`, minWidth: '180px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #2e2d3b', minHeight: 0 }}>
               <div className="shotcut-panel-tabs">
-                <button 
-                  className={`shotcut-panel-tab-btn ${leftTab === 'playlist' ? 'active' : ''}`}
-                  onClick={() => setLeftTab('playlist')}
-                >
-                  Playlist (DS Phát)
-                </button>
-                <button 
-                  className={`shotcut-panel-tab-btn ${leftTab === 'filters' ? 'active' : ''}`}
-                  onClick={() => setLeftTab('filters')}
-                >
-                  Bộ lọc (Filters)
-                </button>
-                <button 
-                  className={`shotcut-panel-tab-btn ${leftTab === 'history' ? 'active' : ''}`}
-                  onClick={() => setLeftTab('history')}
-                >
-                  Lịch sử
-                </button>
+                <button className={`shotcut-panel-tab-btn ${leftTab === 'playlist' ? 'active' : ''}`} onClick={() => setLeftTab('playlist')}>Playlist</button>
+                <button className={`shotcut-panel-tab-btn ${leftTab === 'filters' ? 'active' : ''}`} onClick={() => setLeftTab('filters')}>Bộ lọc</button>
+                <button className={`shotcut-panel-tab-btn ${leftTab === 'history' ? 'active' : ''}`} onClick={() => setLeftTab('history')}>Lịch sử</button>
               </div>
 
               <div className="kdenlive-panel-content" style={{ flex: 1, padding: '12px', overflowY: 'auto' }}>
                 {leftTab === 'playlist' && (
                   <div>
                     <div className="media-item">
-                      <FileText size={16} style={{ color: '#10b981' }} />
+                      <FileText size={14} style={{ color: '#10b981' }} />
                       <div className="media-item-info">
                         <span className="media-item-title">{docValue}</span>
                         <span className="media-item-meta">Tài liệu kịch bản gốc</span>
                       </div>
                     </div>
                     <div className="media-item">
-                      <Globe size={16} style={{ color: '#3b82f6' }} />
+                      <Globe size={14} style={{ color: '#3b82f6' }} />
                       <div className="media-item-info">
                         <span className="media-item-title">{urlValue}</span>
                         <span className="media-item-meta">Trang quét nội dung</span>
                       </div>
                     </div>
                     <div className="media-item">
-                      <Volume2 size={16} style={{ color: '#8b5cf6' }} />
+                      <Volume2 size={14} style={{ color: '#8b5cf6' }} />
                       <div className="media-item-info">
                         <span className="media-item-title">Giong_Doc_AI_TTS.mp3</span>
                         <span className="media-item-meta">Thuyết minh lồng tiếng</span>
@@ -3728,9 +3924,9 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     {scenes.slice(0, sceneCount).map((scene, idx) => (
                       <div key={scene.id} className="media-item" onClick={() => {
                         setCurrentTime(idx * 4 + 0.1);
-                        addHistory(`Xem trước (seek) Cảnh ${idx + 1}`);
+                        addHistory(`Xem trước Cảnh ${idx + 1}`);
                       }}>
-                        <ImageIcon size={16} style={{ color: '#f59e0b' }} />
+                        <ImageIcon size={14} style={{ color: '#f59e0b' }} />
                         <div className="media-item-info">
                           <span className="media-item-title">Video_Clip_Phan_Canh_${idx + 1}.mp4</span>
                           <span className="media-item-meta">{scene.duration}s | 1080p</span>
@@ -3745,13 +3941,13 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     <input 
                       type="text" 
                       className="shotcut-search-bar" 
-                      placeholder="Tìm bộ lọc Shotcut..." 
+                      placeholder="Tìm bộ lọc..." 
                       value={filterSearch}
                       onChange={(e) => setFilterSearch(e.target.value)}
                     />
                     
                     <div style={{ padding: '6px', background: '#15141e', borderRadius: '4px', marginBottom: '12px' }}>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Bộ lọc hiện tại:</span>
+                      <span style={{ fontSize: '10px', color: '#8d8a98' }}>Bộ lọc hiện tại:</span>
                       <div style={{ fontSize: '12px', color: '#fff', fontWeight: 600, marginTop: '4px' }}>
                         {scenes[activeSceneIndex]?.fx === 'none' ? 'Không có bộ lọc' : scenes[activeSceneIndex]?.fx.toUpperCase()}
                       </div>
@@ -3798,17 +3994,23 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               </div>
             </div>
 
-            {/* 2. Center Panel: Project Monitor with Audio Peak Meter */}
-            <div className="project-monitor" style={{ flex: 2, borderRight: '1px solid #2e2d3b', background: '#111', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div className="kdenlive-panel-header" style={{ width: '100%', border: 'none', background: 'none', color: '#fff', marginBottom: '8px' }}>
+            {/* Sidebar Resizer (Left) */}
+            <div 
+              className="sidebar-resizer active-nle" 
+              onMouseDown={startResizingShotcutLeft}
+            />
+
+            {/* 2. Program Player Monitor */}
+            <div className="project-monitor" style={{ flex: 1, borderRight: '1px solid #2e2d3b', background: '#141419', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="kdenlive-panel-header" style={{ width: '100%', border: 'none', background: 'none', color: '#fff', marginBottom: '8px', display: 'flex', gap: '8px' }}>
                 <Film size={12} />
-                Project Monitor (Trình xem thử)
+                <span>Trình phát Clip nguồn & Thành phẩm</span>
               </div>
               
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 0 }}>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 0, width: '100%' }}>
                 {/* Video screen */}
                 <div className="video-screen" style={{ 
-                  width: aspectRatio === '9:16' ? '160px' : 
+                  width: aspectRatio === '9:16' ? '150px' : 
                          aspectRatio === '1:1' ? '220px' : 
                          aspectRatio === '4:5' ? '180px' : 
                          aspectRatio === '21:9' ? '320px' : '280px', 
@@ -3817,8 +4019,9 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                                aspectRatio === '4:5' ? '4/5' : 
                                aspectRatio === '21:9' ? '21/9' : '16/9', 
                   maxHeight: 'none', 
-                  height: '220px', 
-                  position: 'relative' 
+                  height: '240px', 
+                  position: 'relative',
+                  border: '2px solid #333'
                 }}>
                   {workflowCompleted ? (
                     <>
@@ -3846,26 +4049,6 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     </div>
                   )}
                 </div>
-
-                {/* Shotcut Audio Peak Meter */}
-                <div className="shotcut-peak-meter-container" title="Audio Peak Meter (Shotcut Style)">
-                  <div className="shotcut-peak-meter-channel">
-                    <div className="peak-meter-bar" style={{ height: `${peakL}%` }} />
-                  </div>
-                  <div className="shotcut-peak-meter-channel">
-                    <div className="peak-meter-bar" style={{ height: `${peakR}%` }} />
-                  </div>
-                  <div className="peak-meter-db-labels">
-                    <span>0</span>
-                    <span>-6</span>
-                    <span>-12</span>
-                    <span>-18</span>
-                    <span>-24</span>
-                    <span>-30</span>
-                    <span>-42</span>
-                    <span>-50</span>
-                  </div>
-                </div>
               </div>
 
               {workflowCompleted && (
@@ -3884,6 +4067,18 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     <RotateCcw size={12} />
                     Reset
                   </button>
+                  
+                  {/* Detailed Player Scrubber Buttons */}
+                  <div className="player-transport-controls" style={{ display: 'flex', gap: '4px' }}>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => setCurrentTime(prev => Math.max(0, prev - 2))} title="Tua lại 2s">◀◀</button>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => setIsPlayingPreview(!isPlayingPreview)} title={isPlayingPreview ? "Tạm dừng" : "Phát"}>
+                      {isPlayingPreview ? '⏸' : '▶'}
+                    </button>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => setCurrentTime(prev => Math.min(totalDuration, prev + 2))} title="Tua đi 2s">▶▶</button>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: isLooping ? '#3b82f6' : '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => { setIsLooping(!isLooping); addHistory(`Đã ${!isLooping ? 'Bật' : 'Tắt'} chế độ lặp phát`); }} title="Lặp lại (Loop)">🔁</button>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => { alert("Chế độ Toàn màn hình đã được kích hoạt!"); }} title="Toàn màn hình">📺</button>
+                  </div>
+
                   <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#a3a1b3' }}>
                     {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
                   </span>
@@ -3891,67 +4086,86 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               )}
             </div>
 
-            {/* 3. Right Panel: Jobs (Export Tasks) */}
-            <div className="shotcut-jobs-panel">
-              <div className="kdenlive-panel-header">
-                <Sliders size={12} />
-                Jobs (Công việc xuất bản)
+            {/* Sidebar Resizer (Right) */}
+            <div 
+              className="sidebar-resizer active-nle" 
+              onMouseDown={startResizingShotcutRight}
+            />
+
+            {/* 3. Right Sidebar: Audio Peak Meter & Jobs/Properties */}
+            <div className="shotcut-right-panel" style={{ width: `${shotcutRightWidth}px`, minWidth: '180px', display: 'flex', borderLeft: 'none', background: '#1c1b22', minHeight: 0 }}>
+              
+              {/* Vertical Audio Peak Meter */}
+              <div className="shotcut-peak-meter-container" style={{ padding: '12px 6px', borderRight: '1px solid #2e2d3b', display: 'flex', flexDirection: 'row', gap: '4px' }} title="Audio Peak Meter">
+                <div className="shotcut-peak-meter-channel" style={{ height: '90%', width: '8px', backgroundColor: '#111', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                  <div className="peak-meter-bar" style={{ position: 'absolute', bottom: 0, width: '100%', height: `${peakL}%`, backgroundColor: peakL > 80 ? '#ef4444' : peakL > 60 ? '#eab308' : '#10b981', transition: 'height 0.1s linear' }} />
+                </div>
+                <div className="shotcut-peak-meter-channel" style={{ height: '90%', width: '8px', backgroundColor: '#111', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                  <div className="peak-meter-bar" style={{ position: 'absolute', bottom: 0, width: '100%', height: `${peakR}%`, backgroundColor: peakR > 80 ? '#ef4444' : peakR > 60 ? '#eab308' : '#10b981', transition: 'height 0.1s linear' }} />
+                </div>
+                <div className="peak-meter-db-labels" style={{ fontSize: '8px', color: '#8d8a98', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '90%', paddingLeft: '4px' }}>
+                  <span>0</span>
+                  <span>-12</span>
+                  <span>-24</span>
+                  <span>-36</span>
+                  <span>-50</span>
+                </div>
               </div>
-              <div className="kdenlive-panel-content">
-                {exportJobs.map(job => (
-                  <div key={job.id} className="shotcut-job-item">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 600, color: '#e2e0e8' }}>{job.name}</span>
-                      <span style={{ color: job.progress === 100 ? '#10b981' : 'var(--primary)' }}>
-                        {job.progress}%
-                      </span>
+
+              {/* Jobs & Properties Stack */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                <div className="kdenlive-panel-header" style={{ borderBottom: '1px solid #2e2d3b', padding: '8px 12px', fontSize: '11px', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <Sliders size={12} /> Properties (Thuộc tính)
+                </div>
+                <div style={{ padding: '10px 12px', fontSize: '11px', color: '#a3a1b3', borderBottom: '1px solid #2e2d3b', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div><strong>Độ phân giải:</strong> 1080 x 1920 (FHD)</div>
+                  <div><strong>Tỉ lệ khung hình:</strong> {aspectRatio}</div>
+                  <div><strong>FPS:</strong> 25.00 fps</div>
+                  <div><strong>Codec Video:</strong> {renderConfig.videoCodec}</div>
+                  <div><strong>Codec Audio:</strong> AAC Stereo</div>
+                </div>
+
+                <div className="kdenlive-panel-header" style={{ borderBottom: '1px solid #2e2d3b', padding: '8px 12px', fontSize: '11px', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <Sliders size={12} /> Hàng đợi Export Jobs
+                </div>
+                <div style={{ padding: '10px', flex: 1 }}>
+                  {exportJobs.map(job => (
+                    <div key={job.id} className="shotcut-job-item" style={{ marginBottom: '8px', background: '#25242d', padding: '8px', borderRadius: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <span style={{ fontWeight: 600, color: '#e2e0e8', fontSize: '11px' }}>{job.name}</span>
+                        <span style={{ color: job.progress === 100 ? '#10b981' : 'var(--primary)', fontSize: '11px' }}>
+                          {job.progress}%
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Status: {job.status}</span>
+                      <div className="shotcut-job-progress-bar" style={{ height: '4px', width: '100%', backgroundColor: '#111', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
+                        <div className="shotcut-job-progress-fill" style={{ width: `${job.progress}%`, height: '100%', backgroundColor: '#10b981' }} />
+                      </div>
                     </div>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Trạng thái: {job.status}</span>
-                    <div className="shotcut-job-progress-bar">
-                      <div className="shotcut-job-progress-fill" style={{ width: `${job.progress}%` }} />
-                    </div>
-                  </div>
-                ))}
-                
-                <button 
-                  className="btn btn-primary" 
-                  style={{ width: '100%', fontSize: '11px', marginTop: '12px', padding: '6px' }}
-                  onClick={() => {
-                    const jobId = `job-${Date.now()}`;
-                    const newJob = { id: jobId, name: `Xuất_${promptValue.slice(0, 10)}.mp4`, progress: 0, status: 'Đang chạy' };
-                    setExportJobs(prev => [...prev, newJob]);
-                    addHistory(`Khởi tạo tiến trình xuất video: ${newJob.name}`);
-                    
-                    let prog = 0;
-                    const interval = setInterval(() => {
-                      prog += 20;
-                      setExportJobs(prev => prev.map(j => j.id === jobId ? { ...j, progress: prog, status: prog === 100 ? 'Hoàn thành' : 'Đang xử lý' } : j));
-                      if (prog >= 100) {
-                        clearInterval(interval);
-                        addHistory(`Đã xuất bản thành công file: ${newJob.name}`);
-                      }
-                    }, 800);
-                  }}
-                  disabled={!workflowCompleted}
-                >
-                  + Khởi tạo Render Job mới
-                </button>
+                  ))}
+                </div>
               </div>
             </div>
 
           </div>
 
-          {/* 4. Full Width Timeline */}
-          <div className="kdenlive-bottom-row" style={{ display: 'flex', flexDirection: 'column' }}>
-            <div className="kdenlive-panel-header" style={{ height: '32px', borderBottom: '1px solid #3d3b4f' }}>
-              <Film size={12} />
-              Shotcut Timeline Monitor (Dòng thời gian Shotcut)
+          {/* Horizontal Splitter (Timeline) */}
+          <div 
+            className="panel-resizer-horizontal active-nle"
+            onMouseDown={startResizingShotcutTimeline}
+            style={{ cursor: 'row-resize', height: '4px', width: '100%', backgroundColor: 'transparent' }}
+          />
+
+          {/* 4. Full Width Timeline tracks */}
+          <div className="kdenlive-bottom-row" style={{ height: `${shotcutTimelineHeight}px`, display: 'flex', flexDirection: 'column', minHeight: '120px' }}>
+            <div className="kdenlive-panel-header" style={{ height: '32px', borderBottom: '1px solid #3d3b4f', padding: '0 12px', display: 'flex', alignItems: 'center' }}>
+              <Film size={12} style={{ marginRight: '6px' }} />
+              <span>Shotcut Multi-track Timeline Editor</span>
             </div>
 
             {workflowCompleted && (
               <div className="kdenlive-timeline-toolbar">
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {/* Tool selection buttons */}
                   <button className="snap-toggle-btn active" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ chọn (S)">S</button>
                   <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ cắt Razor (R)">R</button>
                   <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ dãn cách (M)">M</button>
@@ -3963,7 +4177,6 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     onClick={() => {
                       setIsSnapEnabled(!isSnapEnabled);
                       addLog(`Đã ${!isSnapEnabled ? 'Bật' : 'Tắt'} chế độ Bám dính (Snap-to-Grid).`, 'info');
-                      addHistory(`Đã ${!isSnapEnabled ? 'Bật' : 'Tắt'} bám dính (Snap)`);
                     }}
                   >
                     <Zap size={10} />
@@ -4055,7 +4268,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             )}
           </div>
         </div>
-      ) : (
+      ) : editorMode === 'tools' ? (
         /* Tools Dashboard */
         (() => {
           const selectedTool = tools.find(t => t.id === selectedToolId) || tools[0];
@@ -4400,6 +4613,575 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             </div>
           );
         })()
+      ) : (
+        /* Google Flow Agent Dashboard (editorMode === 'agent-flow') */
+        <div className="agent-flow-light-theme" style={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', overflow: 'hidden', backgroundColor: '#f8fafc', color: '#1e293b', fontFamily: 'var(--font-sans)' }}>
+          {/* Cột Trái: Chatbot hội thoại AI Agent */}
+          <div className="agent-flow-sidebar-left" style={{ width: '320px', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+            <div className="agent-flow-sidebar-header" style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={16} style={{ color: '#4f46e5' }} />
+                AI Agent Chatbot
+              </h3>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '4px 0 0 0' }}>Theo dõi cuộc hội thoại giữa các AI Agents</p>
+            </div>
+            
+            <div className="agent-flow-chat-thread" style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {agentLogs.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', padding: '20px', textAlign: 'center' }}>
+                  <Users size={32} strokeWidth={1.5} style={{ marginBottom: '12px', color: '#cbd5e1' }} />
+                  <p style={{ fontSize: '12px', margin: 0 }}>Chưa có thảo luận nào giữa các AI Agents.</p>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Bấm nút <strong>Chạy thử</strong> ở góc trên bên phải để bắt đầu cuộc trò chuyện!</p>
+                </div>
+              ) : (
+                <>
+                  {agentLogs.map((chat, idx) => {
+                    const isLeft = chat.agent !== 'Biên Tập Agent';
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`agent-flow-chat-bubble ${isLeft ? 'left' : 'right'}`}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignSelf: isLeft ? 'flex-start' : 'flex-end',
+                          maxWidth: '90%',
+                          padding: '10px 14px',
+                          borderRadius: '12px',
+                          borderLeft: `4px solid ${chat.color}`,
+                          backgroundColor: '#f1f5f9',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '16px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: chat.color }}>{chat.agent}</span>
+                          <span style={{ fontSize: '9px', color: '#94a3b8' }}>{chat.time}</span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#334155', margin: 0, lineHeight: '1.4' }}>{chat.message}</p>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Blinking Typing Indicators */}
+                  {(agentStatuses.writer === 'thinking' || agentStatuses.writer === 'active') && (
+                    <div className="agent-flow-typing" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '10px 14px', borderRadius: '12px', borderLeft: '4px solid #a855f7', backgroundColor: '#f1f5f9', alignSelf: 'flex-start' }}>
+                      <span style={{ color: '#a855f7', fontSize: '11px', fontWeight: 600, marginRight: '4px' }}>Biên Kịch</span>
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#a855f7', animation: 'blink 1.4s infinite both' }} />
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#a855f7', animation: 'blink 1.4s infinite both 0.2s' }} />
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#a855f7', animation: 'blink 1.4s infinite both 0.4s' }} />
+                    </div>
+                  )}
+                  {(agentStatuses.director === 'thinking' || agentStatuses.director === 'active') && (
+                    <div className="agent-flow-typing" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '10px 14px', borderRadius: '12px', borderLeft: '4px solid #3b82f6', backgroundColor: '#f1f5f9', alignSelf: 'flex-start' }}>
+                      <span style={{ color: '#3b82f6', fontSize: '11px', fontWeight: 600, marginRight: '4px' }}>Đạo Diễn</span>
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#3b82f6', animation: 'blink 1.4s infinite both' }} />
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#3b82f6', animation: 'blink 1.4s infinite both 0.2s' }} />
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#3b82f6', animation: 'blink 1.4s infinite both 0.4s' }} />
+                    </div>
+                  )}
+                  {(agentStatuses.voice === 'thinking' || agentStatuses.voice === 'active') && (
+                    <div className="agent-flow-typing" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '10px 14px', borderRadius: '12px', borderLeft: '4px solid #f97316', backgroundColor: '#f1f5f9', alignSelf: 'flex-start' }}>
+                      <span style={{ color: '#f97316', fontSize: '11px', fontWeight: 600, marginRight: '4px' }}>Âm Thanh</span>
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#f97316', animation: 'blink 1.4s infinite both' }} />
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#f97316', animation: 'blink 1.4s infinite both 0.2s' }} />
+                      <div className="typing-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#f97316', animation: 'blink 1.4s infinite both 0.4s' }} />
+                    </div>
+                  )}
+                  
+                  <div ref={chatEndRef} />
+                </>
+              )}
+            </div>
+            
+            <div style={{ padding: '16px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '8px' }}>
+              <input 
+                type="text" 
+                className="form-input text-chat-input" 
+                style={{ flex: 1, fontSize: '12px', height: '34px', padding: '6px 10px', backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#1e293b' }} 
+                placeholder="Nhập tin nhắn..." 
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const text = (e.target as HTMLInputElement).value.trim();
+                    if (text) {
+                      addAgentLog('Biên Tập Agent', text, '#10b981');
+                      (e.target as HTMLInputElement).value = '';
+                      // Simulate a response from agents
+                      setTimeout(() => {
+                        addAgentLog('Biên Kịch Agent', `Tôi ghi nhận yêu cầu của Biên tập: "${text}". Tôi đang tiến hành cập nhật lại phân cảnh.`, '#a855f7');
+                      }, 1000);
+                    }
+                  }
+                }}
+              />
+              <button 
+                className="btn btn-primary" 
+                style={{ height: '34px', padding: '0 12px', fontSize: '12px', backgroundColor: '#4f46e5' }}
+                onClick={() => {
+                  const input = document.querySelector('.text-chat-input') as HTMLInputElement;
+                  const text = input?.value.trim();
+                  if (text) {
+                    addAgentLog('Biên Tập Agent', text, '#10b981');
+                    input.value = '';
+                    setTimeout(() => {
+                      addAgentLog('Biên Kịch Agent', `Tôi ghi nhận yêu cầu của Biên tập: "${text}". Tôi đang tiến hành cập nhật lại phân cảnh.`, '#a855f7');
+                    }, 1000);
+                  }
+                }}
+              >
+                Gửi
+              </button>
+            </div>
+          </div>
+
+          {/* Cột Giữa: Sơ đồ Agent Flow và Khu vực thiết kế chai nước chấm */}
+          <div className="agent-flow-main-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '24px', gap: '20px' }}>
+            {/* Sơ đồ Flow kết nối các Agents */}
+            <div className="agent-flowchart-card" style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+              <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#334155', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sơ đồ điều phối AI Agent (Google Flow)</h4>
+              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', position: 'relative', padding: '10px 0' }}>
+                {/* Node 1: Biên Kịch */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2 }}>
+                  <div style={{
+                    width: '60px', height: '60px', borderRadius: '50%', backgroundColor: agentStatuses.writer !== 'idle' ? '#faf5ff' : '#f8fafc',
+                    border: `2px solid ${agentStatuses.writer !== 'idle' ? '#a855f7' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: agentStatuses.writer === 'active' ? '0 0 12px rgba(168, 85, 247, 0.4)' : 'none',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    <Users size={24} style={{ color: agentStatuses.writer !== 'idle' ? '#a855f7' : '#64748b' }} />
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Biên Kịch Agent</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '10px' }}>{writerModel}</span>
+                </div>
+
+                {/* Arrow 1 */}
+                <div style={{ flex: 1, height: '2px', backgroundColor: agentStatuses.writer === 'success' ? '#a855f7' : '#cbd5e1', margin: '0 12px', position: 'relative', maxWidth: '80px' }}>
+                  <div className="flow-arrow-head" style={{ position: 'absolute', right: 0, top: '-4px', width: '10px', height: '10px', borderTop: `2px solid ${agentStatuses.writer === 'success' ? '#a855f7' : '#cbd5e1'}`, borderRight: `2px solid ${agentStatuses.writer === 'success' ? '#a855f7' : '#cbd5e1'}`, transform: 'rotate(45deg)' }} />
+                  {agentStatuses.writer === 'active' && <div className="flow-arrow-pulse" />}
+                </div>
+
+                {/* Node 2: Đạo Diễn */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2 }}>
+                  <div style={{
+                    width: '60px', height: '60px', borderRadius: '50%', backgroundColor: agentStatuses.director !== 'idle' ? '#eff6ff' : '#f8fafc',
+                    border: `2px solid ${agentStatuses.director !== 'idle' ? '#3b82f6' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: agentStatuses.director === 'active' ? '0 0 12px rgba(59, 130, 246, 0.4)' : 'none',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    <Cpu size={24} style={{ color: agentStatuses.director !== 'idle' ? '#3b82f6' : '#64748b' }} />
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Đạo Diễn Visual</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '10px' }}>{directorModel}</span>
+                </div>
+
+                {/* Arrow 2 */}
+                <div style={{ flex: 1, height: '2px', backgroundColor: agentStatuses.director === 'success' ? '#3b82f6' : '#cbd5e1', margin: '0 12px', position: 'relative', maxWidth: '80px' }}>
+                  <div className="flow-arrow-head" style={{ position: 'absolute', right: 0, top: '-4px', width: '10px', height: '10px', borderTop: `2px solid ${agentStatuses.director === 'success' ? '#3b82f6' : '#cbd5e1'}`, borderRight: `2px solid ${agentStatuses.director === 'success' ? '#3b82f6' : '#cbd5e1'}`, transform: 'rotate(45deg)' }} />
+                  {agentStatuses.director === 'active' && <div className="flow-arrow-pulse" />}
+                </div>
+
+                {/* Node 3: Âm Thanh */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2 }}>
+                  <div style={{
+                    width: '60px', height: '60px', borderRadius: '50%', backgroundColor: agentStatuses.voice !== 'idle' ? '#fff7ed' : '#f8fafc',
+                    border: `2px solid ${agentStatuses.voice !== 'idle' ? '#f97316' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: agentStatuses.voice === 'active' ? '0 0 12px rgba(249, 115, 22, 0.4)' : 'none',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    <Volume2 size={24} style={{ color: agentStatuses.voice !== 'idle' ? '#f97316' : '#64748b' }} />
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Lồng Tiếng AI</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '10px' }}>TTS Engine</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Khu vực thiết kế chai nước chấm hải sản (F&B Creative Tool) */}
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', margin: 0 }}>Ứng dụng Tạo ảnh Visual Nước chấm Hải sản (F&B AI Generator)</h3>
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Dành cho Shop affiliate, brand nhỏ, thiết kế nhanh ad creative F&B</p>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#4f46e5', backgroundColor: '#e0e7ff', padding: '4px 10px', borderRadius: '12px' }}>F&B Tool</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '24px' }}>
+                {/* Left side: Upload & Parameters */}
+                <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Upload zone */}
+                  <div className="fb-upload-zone" style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '20px', textAlign: 'center', backgroundColor: '#f8fafc', transition: 'all 0.2s', position: 'relative' }}>
+                    {fbPhoto ? (
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <img src={fbPhoto} alt="Product upload" style={{ maxHeight: '140px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+                        <button 
+                          className="param-delete-btn" 
+                          style={{ position: 'absolute', top: '-8px', right: '-8px', backgroundColor: '#ef4444', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                          onClick={() => setFbPhoto('')}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <Upload size={32} style={{ color: '#94a3b8' }} />
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#475569' }}>Kéo thả ảnh chai nước chấm vào đây hoặc click duyệt file</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0, cursor: 'pointer' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                setFbPhoto(evt.target?.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        
+                        <div style={{ marginTop: '12px', width: '100%' }}>
+                          <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '6px' }}>Hoặc chọn nhanh chai mẫu có sẵn:</span>
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                            <div 
+                              className="sample-bottle-item"
+                              style={{ width: '45px', height: '45px', borderRadius: '6px', border: '1px solid #e2e8f0', padding: '2px', cursor: 'pointer', backgroundColor: '#fff' }}
+                              onClick={() => {
+                                setFbPhoto('https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80');
+                                addLog("Đã chọn Chai Nước sốt Ớt làm mẫu", "info");
+                              }}
+                              title="Chai Sốt Ớt Đỏ"
+                            >
+                              <img src="https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=100&q=80" alt="Chai Ớt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            </div>
+                            <div 
+                              className="sample-bottle-item"
+                              style={{ width: '45px', height: '45px', borderRadius: '6px', border: '1px solid #e2e8f0', padding: '2px', cursor: 'pointer', backgroundColor: '#fff' }}
+                              onClick={() => {
+                                setFbPhoto('https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=400&q=80');
+                                addLog("Đã chọn Chai Sốt Gia vị Xanh làm mẫu", "info");
+                              }}
+                              title="Chai Gia Vị Xanh"
+                            >
+                              <img src="https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=100&q=80" alt="Chai Gia vị" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            </div>
+                            <div 
+                              className="sample-bottle-item"
+                              style={{ width: '45px', height: '45px', borderRadius: '6px', border: '1px solid #e2e8f0', padding: '2px', cursor: 'pointer', backgroundColor: '#fff' }}
+                              onClick={() => {
+                                setFbPhoto('https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80');
+                                addLog("Đã chọn Chai Dầu hào / Nước chấm làm mẫu", "info");
+                              }}
+                              title="Chai Nước Sốt Gourmet"
+                            >
+                              <img src="https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=100&q=80" alt="Chai Gourmet" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Brand name & benefit inputs */}
+                  <div className="form-group">
+                    <label className="form-label" style={{ color: '#475569' }}>Tên Thương hiệu nước chấm:</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      style={{ fontSize: '13px', backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#1e293b' }}
+                      value={fbBrandName} 
+                      onChange={(e) => setFbBrandName(e.target.value)} 
+                      placeholder="VD: Nước Mắm Nha Trang..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ color: '#475569' }}>Thông điệp / Lợi ích cốt lõi:</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      style={{ fontSize: '13px', backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#1e293b' }}
+                      value={fbBenefit} 
+                      onChange={(e) => setFbBenefit(e.target.value)} 
+                      placeholder="VD: Chua cay, đậm vị hải sản tươi nguyên chất..."
+                    />
+                  </div>
+                </div>
+
+                {/* Right side: Scene styles selection & Execution */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', borderLeft: '1px solid #f1f5f9', paddingLeft: '24px' }}>
+                  <label className="form-label" style={{ color: '#475569', marginBottom: 0 }}>Chọn Phong cách bối cảnh:</label>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div 
+                      onClick={() => setFbStyle('restaurant')}
+                      style={{
+                        padding: '12px', borderRadius: '10px', border: `2px solid ${fbStyle === 'restaurant' ? '#4f46e5' : '#e2e8f0'}`,
+                        backgroundColor: fbStyle === 'restaurant' ? '#faf5ff' : '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                        <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80" alt="Restaurant" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Bàn ăn nhà hàng</div>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>restaurant table setting</div>
+                      </div>
+                    </div>
+
+                    <div 
+                      onClick={() => setFbStyle('flatlay')}
+                      style={{
+                        padding: '12px', borderRadius: '10px', border: `2px solid ${fbStyle === 'flatlay' ? '#4f46e5' : '#e2e8f0'}`,
+                        backgroundColor: fbStyle === 'flatlay' ? '#faf5ff' : '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                        <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=100&q=80" alt="Flat lay" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Chụp từ trên xuống (Flat lay)</div>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>flat lay food photography</div>
+                      </div>
+                    </div>
+
+                    <div 
+                      onClick={() => setFbStyle('instagram')}
+                      style={{
+                        padding: '12px', borderRadius: '10px', border: `2px solid ${fbStyle === 'instagram' ? '#4f46e5' : '#e2e8f0'}`,
+                        backgroundColor: fbStyle === 'instagram' ? '#faf5ff' : '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                        <img src="https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=100&q=80" alt="Instagram" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Instagram Lifestyle</div>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>lifestyle Instagram aesthetic</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button 
+                    className="btn btn-primary animate-btn-pulse" 
+                    style={{
+                      height: '42px', width: '100%', background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                      boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', color: 'white', border: 'none', fontWeight: 600,
+                      marginTop: '8px', fontSize: '13px'
+                    }}
+                    onClick={handleGenerateFBVisual}
+                    disabled={fbStatus !== 'idle' && fbStatus !== 'done'}
+                  >
+                    {fbStatus === 'idle' && '🚀 Tạo Visual chai nước chấm'}
+                    {fbStatus === 'cleaning' && '✂ 1. Đang tách nền chai...'}
+                    {fbStatus === 'placing' && '🖼 2. Đang lồng bối cảnh...'}
+                    {fbStatus === 'lighting' && '☀️ 3. Đang cân ánh sáng & đổ bóng...'}
+                    {fbStatus === 'done' && 'Tạo lại Visual'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress animation banner */}
+              {fbStatus !== 'idle' && fbStatus !== 'done' && (
+                <div style={{
+                  padding: '16px', borderRadius: '12px', background: 'linear-gradient(90deg, #f3f4f6 0%, #eff6ff 100%)',
+                  border: '1px solid #dbeafe', display: 'flex', flexDirection: 'column', gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e40af' }}>
+                      {fbStatus === 'cleaning' && 'Tiến trình: 33% - Tách nền vật thể (Background Removal)...'}
+                      {fbStatus === 'placing' && 'Tiến trình: 66% - Tích hợp bối cảnh thông minh (Scene Placement)...'}
+                      {fbStatus === 'lighting' && 'Tiến trình: 90% - Xử lý đổ bóng & ánh sáng động (Realistic Shadows)...'}
+                    </span>
+                    <div className="fb-spinner" />
+                  </div>
+                  <div style={{ height: '6px', width: '100%', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', backgroundColor: '#3b82f6', transition: 'width 0.8s ease',
+                      width: fbStatus === 'cleaning' ? '33%' : fbStatus === 'placing' ? '66%' : '90%'
+                    }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Output variants */}
+              {fbStatus === 'done' && fbGeneratedImages.length > 0 && (
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#334155', margin: 0 }}>3 Biến thể ảnh Ad Creative tạo bởi AI:</h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    {fbGeneratedImages.map((imgUrl, i) => (
+                      <div key={i} className="fb-output-variant" style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <div style={{ flex: 1, aspectRatio: '1/1', position: 'relative', overflow: 'hidden', backgroundColor: '#e2e8f0' }}>
+                          <img src={imgUrl} alt={`Variant ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          {/* Mock bottle overlay to show placement */}
+                          {fbPhoto && (
+                            <img 
+                              src={fbPhoto} 
+                              alt="Bottle Overlay" 
+                              className="fb-mock-bottle-overlay"
+                              style={{ 
+                                position: 'absolute', 
+                                bottom: '10%', 
+                                left: '50%', 
+                                transform: 'translateX(-50%)', 
+                                height: '55%', 
+                                objectFit: 'contain',
+                                filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.5))'
+                              }} 
+                            />
+                          )}
+                          <div style={{ position: 'absolute', bottom: '6px', left: '6px', backgroundColor: 'rgba(15,23,42,0.75)', color: 'white', fontSize: '9px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px' }}>
+                            Biến thể {i+1}
+                          </div>
+                        </div>
+
+                        <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fbBrandName}</div>
+                          <div style={{ fontSize: '9px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fbBenefit}</div>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginTop: '4px' }}>
+                            <button 
+                              className="btn" 
+                              style={{ padding: '4px 2px', fontSize: '9.5px', justifyContent: 'center', height: '24px', backgroundColor: '#ffffff', borderColor: '#cbd5e1' }}
+                              onClick={() => handleDownloadVariant(imgUrl, '1:1')}
+                            >
+                              Tải 1:1
+                            </button>
+                            <button 
+                              className="btn" 
+                              style={{ padding: '4px 2px', fontSize: '9.5px', justifyContent: 'center', height: '24px', backgroundColor: '#ffffff', borderColor: '#cbd5e1' }}
+                              onClick={() => handleDownloadVariant(imgUrl, '4:5')}
+                            >
+                              Tải 4:5
+                            </button>
+                            <button 
+                              className="btn" 
+                              style={{ padding: '4px 2px', fontSize: '9.5px', justifyContent: 'center', height: '24px', backgroundColor: '#ffffff', borderColor: '#cbd5e1' }}
+                              onClick={() => handleDownloadVariant(imgUrl, '9:16')}
+                            >
+                              Tải 9:16
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+
+          {/* Cột Phải: Tham số Agent cấu hình nhanh và Video Preview */}
+          <div className="agent-flow-sidebar-right" style={{ width: '320px', borderLeft: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff', overflowY: 'auto' }}>
+            <div className="agent-flow-sidebar-header" style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={16} style={{ color: '#4f46e5' }} />
+                Tham số Agents
+              </h3>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '4px 0 0 0' }}>Định tuyến và cấu hình tham số mô hình</p>
+            </div>
+            
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', borderBottom: '1px solid #e2e8f0' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ color: '#475569' }}>Nhiệt độ sáng tạo (Temperature):</label>
+                <input type="range" min="0" max="1" step="0.1" defaultValue="0.7" style={{ padding: 0 }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b' }}>
+                  <span>0.0 (Chính xác)</span>
+                  <span>1.0 (Sáng tạo)</span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ color: '#475569' }}>Định tuyến Mô hình (Routing):</label>
+                <select className="form-select" defaultValue="auto" style={{ fontSize: '12px', padding: '6px 10px', backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#1e293b' }}>
+                  <option value="auto">Auto-routing (Tối ưu chi phí)</option>
+                  <option value="high-performance">High Performance (Ưu tiên mô hình mạnh)</option>
+                  <option value="local">Local Only (Chạy offline qua Ollama)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ color: '#475569' }}>Lưu trữ dữ liệu hội thoại:</label>
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px' }}>
+                  <label className="status-switch" style={{ width: '44px', height: '22px' }}>
+                    <input type="checkbox" defaultChecked />
+                    <span className="status-slider"></span>
+                  </label>
+                  <span style={{ fontSize: '12px', marginLeft: '10px', color: '#475569' }}>Ghi nhớ Logs</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Video preview monitor */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Màn hình xem trước video</span>
+              
+              <div className="video-screen" style={{
+                aspectRatio: aspectRatio === '9:16' ? '9/16' : 
+                             aspectRatio === '1:1' ? '1/1' : 
+                             aspectRatio === '4:5' ? '4/5' : 
+                             aspectRatio === '21:9' ? '21/9' : '16/9',
+                maxHeight: 'none',
+                height: '180px',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                backgroundColor: '#000000',
+                position: 'relative'
+              }}>
+                {workflowCompleted ? (
+                  <>
+                    <img 
+                      src={scenes[activeSceneIndex].image} 
+                      alt="Active scene" 
+                      className={getFxClass()}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} 
+                    />
+                    <div style={{ position: 'absolute', bottom: '15px', left: '10px', right: '10px', display: 'flex', justifyContent: 'center' }}>
+                      <span style={getSubStyle()}>
+                        {scenes[activeSceneIndex].text}
+                      </span>
+                    </div>
+                    <div 
+                      className="video-play-indicator"
+                      onClick={() => setIsPlayingPreview(!isPlayingPreview)}
+                    >
+                      {isPlayingPreview ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: '2px' }} />}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: '#94a3b8', fontSize: '11px', textAlign: 'center', padding: '16px' }}>
+                    Đang chờ xuất bản video...
+                  </div>
+                )}
+              </div>
+
+              {workflowCompleted && (
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', marginTop: '4px' }}>
+                  <button 
+                    className="btn" 
+                    style={{ padding: '3px 8px', fontSize: '11px', height: '24px', backgroundColor: '#ffffff', borderColor: '#cbd5e1' }}
+                    onClick={() => {
+                      setCurrentTime(0);
+                      setIsPlayingPreview(false);
+                    }}
+                  >
+                    <RotateCcw size={10} /> Reset
+                  </button>
+                  <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#64748b' }}>
+                    {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       {toastMessage && (
         <div className="toast-container">

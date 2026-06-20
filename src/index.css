@@ -2061,3 +2061,148 @@ input:checked + .status-slider:before {
   transform: translateX(22px);
 }
 
+/* Google Flow Agent View (Light Theme) Styling */
+.agent-flow-light-theme {
+  --bg-sidebar: #ffffff;
+  --bg-chat-bubble-left: #f1f5f9;
+  --bg-chat-bubble-right: #e0e7ff;
+  --text-main: #1e293b;
+  --text-sub: #64748b;
+  --border-color: #e2e8f0;
+}
+
+/* Animations */
+@keyframes blink {
+  0% { opacity: .2; }
+  20% { opacity: 1; }
+  100% { opacity: .2; }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+}
+
+@keyframes pulse-line {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.fb-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #4f46e5;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Sample bottles and items */
+.sample-bottle-item {
+  transition: all 0.2s ease;
+}
+
+.sample-bottle-item:hover {
+  transform: scale(1.1);
+  border-color: #4f46e5 !important;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.fb-output-variant {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fb-output-variant:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border-color: #4f46e5 !important;
+}
+
+.flow-arrow-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #4f46e5, #a855f7, #4f46e5);
+  background-size: 200% auto;
+  animation: pulse-line 1.5s linear infinite;
+  border-radius: 2px;
+}
+
+.animate-btn-pulse:hover {
+  animation: pulse-glow 1.5s infinite;
+}
+
+/* typing indicators */
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #64748b;
+  display: inline-block;
+}
+
+/* Mock bottle dynamic overlay styling */
+.fb-mock-bottle-overlay {
+  animation: float-bottle 3s ease-in-out infinite;
+}
+
+@keyframes float-bottle {
+  0% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -6px); }
+  100% { transform: translate(-50%, 0); }
+}
+
+/* Resizer lines for VS Code-like dragging */
+.panel-resizer-horizontal {
+  position: absolute;
+  height: 4px;
+  background-color: var(--border-dark);
+  cursor: row-resize;
+  z-index: 15;
+  transition: background-color 0.2s;
+}
+
+.panel-resizer-horizontal:hover,
+.panel-resizer-horizontal:active {
+  background-color: var(--primary) !important;
+}
+
+.sidebar-resizer {
+  width: 4px;
+  background-color: var(--border-dark);
+  cursor: col-resize;
+  z-index: 15;
+  transition: background-color 0.2s;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:active {
+  background-color: var(--primary) !important;
+}
+
+.sidebar-resizer.active-nle {
+  background-color: #2d2b38;
+}
+
+.sidebar-resizer.active-nle:hover,
+.sidebar-resizer.active-nle:active {
+  background-color: #4f46e5 !important;
+}
+
+.panel-resizer-horizontal.active-nle {
+  background-color: #2d2b38;
+}
+
+.panel-resizer-horizontal.active-nle:hover,
+.panel-resizer-horizontal.active-nle:active {
+  background-color: #4f46e5 !important;
+}
+
