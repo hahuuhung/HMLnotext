@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -17,7 +17,7 @@ import {
   Pause, 
   RotateCcw,
   Settings,
-  Cpu,
+  Cpu, Upload,
   Image as ImageIcon,
   FileText,
   Globe,
@@ -38,7 +38,9 @@ import {
   Layers,
   HelpCircle,
   Save,
-  Plus
+  Plus,
+  GitBranch,
+  Send
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -51,6 +53,8 @@ import {
   CodeNode,
   CustomAINode
 } from './components/CustomNodes';
+import LogicNode from './components/LogicNode';
+import PublishNode from './components/PublishNode';
 
 // Define custom node types
 const nodeTypes = {
@@ -65,6 +69,8 @@ const nodeTypes = {
   subtitle: SubtitleNode,
   codeNode: CodeNode,
   customAINode: CustomAINode,
+  logicNode: LogicNode,
+  publishNode: PublishNode,
 };
 
 interface LogEntry {
@@ -101,6 +107,7 @@ interface RenderConfig {
   template: string;
   fps: number;
   concurrency: number;
+  outputDir?: string;
 }
 
 interface Project {
@@ -223,9 +230,23 @@ function WorkflowBuilder() {
     { time: '14:22:07', type: 'info', message: 'Kích hoạt Chế độ dựng phim Kdenlive.' },
     { time: '14:22:08', type: 'info', message: 'Media Project Bin và Effect Stack đã sẵn sàng.' }
   ]);
-  const [agentLogs, setAgentLogs] = useState<AgentMessage[]>([]);
+    const [agentLogs, setAgentLogs] = useState<AgentMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [workflowCompleted, setWorkflowCompleted] = useState(initialProject.workflowCompleted);
+  const [writerModel, setWriterModel] = useState('gpt-4o');
+  const [directorModel, setDirectorModel] = useState('gemini-1.5-pro');
+  const [writerSystemPrompt, setWriterSystemPrompt] = useState('Bạn là Biên kịch AI chuyên nghiệp, chịu trách nhiệm phân tích bối cảnh và phân tách kịch bản phân cảnh phim ngắn.');
+  const [directorSystemPrompt, setDirectorSystemPrompt] = useState('Bạn là Đạo diễn Visual AI, chịu trách nhiệm định hình phong cách hình ảnh và sinh prompt hình ảnh cho mỗi phân cảnh.');
+  const [voiceSystemPrompt, setVoiceSystemPrompt] = useState('Bạn là Kỹ sư Âm thanh AI, chịu trách nhiệm căn chỉnh thời lượng thoại và chọn giọng đọc phù hợp.');
+  const [showPrompts, setShowPrompts] = useState({ writer: false, director: false, voice: false });
+  const [agentStatuses, setAgentStatuses] = useState({ writer: 'idle', director: 'idle', voice: 'idle' });
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeTab === 'agents') {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [agentLogs, activeTab]);
+const [watchPath, setWatchPath] = useState('');
   
   const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive'>('workflow');
 
@@ -408,6 +429,64 @@ function WorkflowBuilder() {
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+
+  const undoStack = useRef<{nodes: Node[], edges: Edge[]}[]>([]);
+
+  const pushUndo = useCallback((currentNodes: Node[], currentEdges: Edge[]) => {
+    undoStack.current.push({ nodes: JSON.parse(JSON.stringify(currentNodes)), edges: JSON.parse(JSON.stringify(currentEdges)) });
+    if (undoStack.current.length > 20) undoStack.current.shift();
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.current.length === 0) {
+      addLog('Không có thao tác nào để hoàn tác', 'warning');
+      return;
+    }
+    const prevState = undoStack.current.pop();
+    if (prevState) {
+      setNodes(prevState.nodes);
+      setEdges(prevState.edges);
+      addLog('Đã hoàn tác', 'info');
+    }
+  }, [setNodes, setEdges, addLog]);
+
+  const saveCanvasTemplate = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ nodes, edges }));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "vietflow-template.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    addLog('Đã tải mẫu xuống máy', 'success');
+  };
+
+  const loadCanvasTemplate = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const parsed = JSON.parse(evt.target?.result as string);
+          if (parsed.nodes && parsed.edges) {
+            pushUndo(nodes, edges);
+            setNodes(parsed.nodes);
+            setEdges(parsed.edges);
+            addLog('Đã nạp mẫu từ file json', 'success');
+          }
+        } catch(err) {
+          addLog('File không hợp lệ', 'error');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
 
   const showToast = (msg: string) => {
@@ -714,36 +793,45 @@ function WorkflowBuilder() {
     setCurrentTime(0);
     
     if (templateType === 'prompt') {
+      // Mẫu Tự động: Xử lý Prompt cơ bản với Rẽ nhánh Logic
       const templateNodes: Node[] = [
-        { id: 't1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Thủ Công', status: 'idle', subtype: 'manual' } },
-        { id: 't2', type: 'inputNode', position: { x: 260, y: 150 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: promptValue, subtype: 'prompt' } },
-        { id: 't3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
-        { id: 't4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle', subtype: 'aiImage' } },
-        { id: 't5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle', subtype: 'tts' } },
-        { id: 't6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle', subtype: 'timeline' } },
-        { id: 't7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'mp4' } },
+        { id: 't1', type: 'trigger', position: { x: 50, y: 250 }, data: { label: 'Chạy Thủ Công', status: 'idle', subtype: 'manual' } },
+        { id: 't2', type: 'inputNode', position: { x: 260, y: 250 }, data: { label: 'Đầu Vào Prompt', status: 'idle', value: promptValue, subtype: 'prompt' } },
+        { id: 't3', type: 'aiNode', position: { x: 480, y: 250 }, data: { label: 'AI Sinh Kịch Bản', status: 'idle', subtype: 'expand' } },
+        { id: 't4', type: 'logicNode', position: { x: 700, y: 250 }, data: { label: 'Kiểm tra độ dài', status: 'idle', expression: 'scenes.length > 2' } },
+        // Nhánh True (Video Dài)
+        { id: 't5_true', type: 'visualNode', position: { x: 950, y: 150 }, data: { label: 'Visual (Chi tiết)', status: 'idle', subtype: 'aiImage' } },
+        { id: 't6_true', type: 'audioTTS', position: { x: 1180, y: 150 }, data: { label: 'Lồng Tiếng & Nhạc', status: 'idle', subtype: 'tts' } },
+        { id: 't7_true', type: 'renderNode', position: { x: 1400, y: 150 }, data: { label: 'Xuất Chất lượng cao', status: 'idle', subtype: 'full' } },
+        // Nhánh False (Video Ngắn)
+        { id: 't5_false', type: 'visualNode', position: { x: 950, y: 350 }, data: { label: 'Visual (Nhanh)', status: 'idle', subtype: 'background' } },
+        { id: 't6_false', type: 'renderNode', position: { x: 1180, y: 350 }, data: { label: 'Xuất Nhanh (Draft)', status: 'idle', subtype: 'preview' } },
       ];
       const templateEdges: Edge[] = [
         { id: 'e-t1-t2', source: 't1', target: 't2' },
         { id: 'e-t2-t3', source: 't2', target: 't3' },
         { id: 'e-t3-t4', source: 't3', target: 't4' },
-        { id: 'e-t3-t5', source: 't3', target: 't5' },
-        { id: 'e-t4-t6', source: 't4', target: 't6' },
-        { id: 'e-t5-t6', source: 't5', target: 't6' },
-        { id: 'e-t6-t7', source: 't6', target: 't7' },
+        { id: 'e-t4-t5_true', source: 't4', target: 't5_true', sourceHandle: 'true' },
+        { id: 'e-t5_true-t6_true', source: 't5_true', target: 't6_true' },
+        { id: 'e-t6_true-t7_true', source: 't6_true', target: 't7_true' },
+        { id: 'e-t4-t5_false', source: 't4', target: 't5_false', sourceHandle: 'false' },
+        { id: 'e-t5_false-t6_false', source: 't5_false', target: 't6_false' },
       ];
       setNodes(templateNodes);
       setEdges(templateEdges);
-      addLog('Đã nạp mẫu: Prompt sang Video.', 'success');
+      setAspectRatio('16:9');
+      addLog('Đã nạp mẫu: Prompt sang Video (Có rẽ nhánh Logic).', 'success');
+      
     } else if (templateType === 'doc') {
+      // Mẫu Tài Liệu: Chuyên sâu cho E-Learning / Giới thiệu sản phẩm
       const templateNodes: Node[] = [
-        { id: 'd1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Tự Động', status: 'idle', subtype: 'watchFolder' } },
-        { id: 'd2', type: 'docInput', position: { x: 260, y: 150 }, data: { label: 'Tài Liệu', status: 'idle', value: docValue, subtype: 'upload' } },
-        { id: 'd3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
-        { id: 'd4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle', subtype: 'aiImage' } },
-        { id: 'd5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle', subtype: 'tts' } },
-        { id: 'd6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle', subtype: 'timeline' } },
-        { id: 'd7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'mp4' } },
+        { id: 'd1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Theo dõi Thư mục', status: 'idle', subtype: 'watchFolder' } },
+        { id: 'd2', type: 'docInput', position: { x: 260, y: 150 }, data: { label: 'Phân tích PDF/Word', status: 'idle', value: docValue, subtype: 'upload' } },
+        { id: 'd3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'Tóm Tắt AI', status: 'idle', subtype: 'summary' } },
+        { id: 'd4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Tạo Slide Minh Họa', status: 'idle', subtype: 'brandKit' } },
+        { id: 'd5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Giọng Đọc Chuyên Nghiệp', status: 'idle', subtype: 'tts' } },
+        { id: 'd6', type: 'subtitle', position: { x: 950, y: 150 }, data: { label: 'Phụ đề Giảng Dạy', status: 'idle', subtype: 'timeline' } },
+        { id: 'd7', type: 'renderNode', position: { x: 1200, y: 150 }, data: { label: 'Xuất Video E-Learning', status: 'idle', subtype: 'mp4' } },
       ];
       const templateEdges: Edge[] = [
         { id: 'e-d1-d2', source: 'd1', target: 'd2' },
@@ -756,16 +844,21 @@ function WorkflowBuilder() {
       ];
       setNodes(templateNodes);
       setEdges(templateEdges);
-      addLog('Đã nạp mẫu: Tài liệu sang Video.', 'success');
+      setAspectRatio('16:9');
+      addLog('Đã nạp mẫu: Tài liệu PDF/Word sang Video bài giảng.', 'success');
+      
     } else if (templateType === 'blog') {
+      // Mẫu Social: Video dọc cho TikTok / Shorts với Hashtag tự động và Đăng mạng xã hội
       const templateNodes: Node[] = [
-        { id: 'b1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Lên Lịch', status: 'idle', subtype: 'schedule' } },
-        { id: 'b2', type: 'urlInput', position: { x: 260, y: 150 }, data: { label: 'Liên Kết Blog', status: 'idle', value: urlValue, subtype: 'url' } },
-        { id: 'b3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Script', status: 'idle', subtype: 'expand' } },
-        { id: 'b4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Visual Node', status: 'idle', subtype: 'aiImage' } },
-        { id: 'b5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Lồng Tiếng AI', status: 'idle', subtype: 'tts' } },
-        { id: 'b6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề', status: 'idle', subtype: 'timeline' } },
-        { id: 'b7', type: 'renderNode', position: { x: 1140, y: 150 }, data: { label: 'Xuất Bản', status: 'idle', subtype: 'social' } },
+        { id: 'b1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'Chạy Lên Lịch (Hàng ngày)', status: 'idle', subtype: 'schedule' } },
+        { id: 'b2', type: 'urlInput', position: { x: 260, y: 150 }, data: { label: 'Lấy tin tức từ Link', status: 'idle', value: urlValue, subtype: 'url' } },
+        { id: 'b3', type: 'aiNode', position: { x: 480, y: 150 }, data: { label: 'AI Viết Kịch Bản Trend', status: 'idle', subtype: 'expand' } },
+        { id: 'b4', type: 'visualNode', position: { x: 700, y: 50 }, data: { label: 'Lấy Video Nền (Stock)', status: 'idle', subtype: 'background' } },
+        { id: 'b5', type: 'audioTTS', position: { x: 700, y: 250 }, data: { label: 'Giọng Đọc Nhanh (1.5x)', status: 'idle', subtype: 'tts' } },
+        { id: 'b6', type: 'subtitle', position: { x: 920, y: 150 }, data: { label: 'Phụ Đề Động (Karaoke)', status: 'idle', subtype: 'transition' } },
+        { id: 'b7', type: 'codeNode', position: { x: 1140, y: 150 }, data: { label: 'Sinh Hashtag Tự Động', status: 'idle', subtype: 'js' } },
+        { id: 'b8', type: 'renderNode', position: { x: 1360, y: 150 }, data: { label: 'Xuất Video Dọc', status: 'idle', subtype: 'social' } },
+        { id: 'b9', type: 'publishNode', position: { x: 1580, y: 150 }, data: { label: 'Đăng TikTok/YouTube', status: 'idle', platform: 'TikTok' } },
       ];
       const templateEdges: Edge[] = [
         { id: 'e-b1-b2', source: 'b1', target: 'b2' },
@@ -775,18 +868,61 @@ function WorkflowBuilder() {
         { id: 'e-b4-b6', source: 'b4', target: 'b6' },
         { id: 'e-b5-b6', source: 'b5', target: 'b6' },
         { id: 'e-b6-b7', source: 'b6', target: 'b7' },
+        { id: 'e-b7-b8', source: 'b7', target: 'b8' },
+        { id: 'e-b8-b9', source: 'b8', target: 'b9' },
       ];
       setNodes(templateNodes);
       setEdges(templateEdges);
       setAspectRatio('9:16');
-      addLog('Đã nạp mẫu: Blog sang Social Video (9:16).', 'success');
+      addLog('Đã nạp mẫu: Tự động hóa Video Social (TikTok/Shorts).', 'success');
     }
+
   }, [promptValue, docValue, urlValue, setNodes, setEdges]);
 
   // Load Prompt Template by default
   useEffect(() => {
     loadTemplate('prompt');
   }, []);
+
+  // Fetch watch path and listen to SSE
+  useEffect(() => {
+    fetch('http://localhost:3000/watch/path')
+      .then(res => res.json())
+      .then(data => {
+        if (data.path) setWatchPath(data.path);
+      })
+      .catch(err => console.error(err));
+
+    const eventSource = new EventSource('http://localhost:3000/watch/events');
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'add') {
+        addLog(`[Local Watch] Phát hiện file mới: ${data.name}`, 'info');
+      } else if (data.type === 'remove') {
+        addLog(`[Local Watch] File đã xóa: ${data.name}`, 'info');
+      }
+    };
+
+    return () => eventSource.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleUpdateWatchPath = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/watch/path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: watchPath }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        addLog(`Đã cập nhật thư mục Watch: ${data.path}`, 'success');
+        setWatchPath(data.path);
+      }
+    } catch (err) {
+      addLog('Lỗi khi cập nhật thư mục Watch', 'error');
+    }
+  };
 
   // Update input nodes data values
   useEffect(() => {
@@ -802,15 +938,34 @@ function WorkflowBuilder() {
     );
   }, [promptValue, docValue, urlValue, codeValue, customAIPrompt, setNodes]);
 
-  const addLog = useCallback((message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
-    const time = new Date().toTimeString().split(' ')[0];
-    setLogs((prev) => [...prev, { time, type, message }]);
-  }, []);
 
-  const addAgentLog = useCallback((agent: 'Biên Kịch Agent' | 'Đạo Diễn Agent' | 'Biên Tập Agent' | 'Âm Thanh Agent', message: string, color: string) => {
-    const time = new Date().toTimeString().split(' ')[0];
-    setAgentLogs((prev) => [...prev, { time, agent, color, message }]);
-  }, []);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      addLog(`Đang tải lên tài nguyên: ${file.name}...`, 'info');
+      const res = await fetch('http://localhost:3000/workspaces/demo-workspace/projects/demo-project/assets', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        addLog(`Tải lên thành công: ${file.name}`, 'success');
+        // Lưu URL vào clipboard để tiện test trong Phase 2
+        navigator.clipboard.writeText(data.assetUrl);
+        addLog(`Đã sao chép URL vào clipboard: ${data.assetUrl}`, 'info');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      addLog(`Lỗi tải lên tài nguyên: ${file.name}`, 'error');
+    }
+  };
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -830,6 +985,7 @@ function WorkflowBuilder() {
   }, []);
 
   const addNodeDirectly = (type: string) => {
+    pushUndo(nodes, edges);
     const typeLabels: Record<string, string> = {
       trigger: 'Kích Hoạt',
       inputNode: 'Đầu Vào Prompt',
@@ -968,213 +1124,173 @@ function WorkflowBuilder() {
     setAgentLogs([]);
     setCurrentTime(0);
     setActiveTab('agents');
-    addLog('Bắt đầu chạy luồng video nâng cao...', 'info');
+    addLog('Bắt đầu chạy luồng video theo Graph BFS Engine...', 'info');
 
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Reset nodes
+    // Reset nodes and agents
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, status: 'idle' } })));
+    setAgentStatuses({ writer: 'idle', director: 'idle', voice: 'idle' });
     await sleep(400);
 
-    // 1. Trigger
+    // AI Agents Introduction Dialogue
+    setAgentStatuses({ writer: 'thinking', director: 'idle', voice: 'idle' });
+    await sleep(800);
+    addAgentLog('Biên Kịch Agent', `Xin chào, tôi là Biên Kịch. Định hướng của tôi: "${writerSystemPrompt}". Đang thiết lập kịch bản từ Prompt đầu vào: "${promptValue}"...`, '#a855f7');
+    
+    setAgentStatuses({ writer: 'idle', director: 'thinking', voice: 'idle' });
+    await sleep(800);
+    addAgentLog('Đạo Diễn Agent', `Chào Biên Kịch, tôi đã sẵn sàng. Định hướng hình ảnh: "${directorSystemPrompt}". Phong cách vẽ: "${imageStyle}".`, '#3b82f6');
+    
+    setAgentStatuses({ writer: 'idle', director: 'idle', voice: 'thinking' });
+    await sleep(800);
+    addAgentLog('Âm Thanh Agent', `Chào cuộc họp, tôi đã kết nối. Định hướng âm thanh: "${voiceSystemPrompt}". Sử dụng giọng: "${ttsVoice === 'nu-mien-bac' ? 'Vy Mai (Nữ Bắc)' : ttsVoice === 'nam-mien-bac' ? 'Nam An (Nam Bắc)' : ttsVoice === 'nu-mien-nam' ? 'Thảo Chi (Nữ Nam)' : 'Minh Hoàng (Nam Nam)'}".`, '#f97316');
+    
+    setAgentStatuses({ writer: 'idle', director: 'idle', voice: 'idle' });
+    await sleep(400);
+
     const triggerNodes = nodes.filter(n => n.type === 'trigger');
-    if (triggerNodes.length > 0) {
-      setNodes((nds) => nds.map((n) => (n.type === 'trigger' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      triggerNodes.forEach(n => {
-        const tMap: Record<string, string> = {
-          manual: 'Khởi động hệ thống điều phối Agents thủ công.',
-          schedule: 'Kích hoạt từ lịch trình tự động (Cron)...',
-          webhook: 'Đã nhận tín hiệu từ Webhook URL...',
-          watchFolder: 'Phát hiện có tệp mới trong thư mục Theo dõi...',
-          csvImport: 'Đang nạp dữ liệu hàng loạt từ tệp CSV/Sheet...'
-        };
-        addLog(`Trigger: ${tMap[n.data.subtype as string] || tMap.manual}`, 'info');
-      });
-      await sleep(1000);
-      setNodes((nds) => nds.map((n) => (n.type === 'trigger' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-    }
+    let queue: string[] = triggerNodes.map(n => n.id);
+    const visited = new Set<string>();
+    
+    let currentScenes = [...scenes];
 
-    // 2. Input
-    const inputNodes = nodes.filter(n => ['inputNode', 'docInput', 'urlInput'].includes(n.type || ''));
-    if (inputNodes.length > 0) {
-      setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      inputNodes.forEach(n => {
-        const iMap: Record<string, string> = {
-          prompt: `Đang phân tích Text Prompt: "${promptValue}"...`,
-          url: `Đang trích xuất dữ liệu từ URL: "${urlValue}"...`,
-          product: 'Đang tải dữ liệu sản phẩm từ hệ thống...',
-          upload: `Đang đọc nội dung tệp tải lên: "${docValue}"...`,
-          stock: 'Đang kết nối thư viện Stock tìm kiếm media...'
-        };
-        addLog(`Input: ${iMap[n.data.subtype as string] || iMap.prompt}`, 'info');
-      });
-      await sleep(1000);
-      setNodes((nds) => nds.map((n) => (['inputNode', 'docInput', 'urlInput'].includes(n.type || '') ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-    }
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (!currentId || visited.has(currentId)) continue;
+      visited.add(currentId);
 
-    // 3. AI Script Node
-    const aiNodes = nodes.filter((n) => n.type === 'aiNode');
-    if (aiNodes.length > 0) {
-      setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      aiNodes.forEach(n => {
-        const subtype = n.data.subtype as string;
-        if (subtype === 'outline') {
-           addLog('AI Script: Đang phác thảo dàn ý tổng quan...', 'info');
-        } else if (subtype === 'hook3s') {
-           addLog('AI Script: Đang tạo câu Hook 3 giây đầu siêu cuốn hút...', 'info');
-        } else if (subtype === 'split') {
-           addLog('AI Script: Đang phân tách kịch bản chi tiết thành các phân cảnh độc lập...', 'info');
-        } else if (subtype === 'caption') {
-           addLog('AI Script: Đang trích xuất văn bản làm caption tự động...', 'info');
-        } else if (subtype === 'translate') {
-           addLog('AI Script: Đang dịch thuật và bản địa hóa ngôn ngữ gốc...', 'info');
-        } else {
-           addLog('Khởi chạy hội thoại điều phối Agent kịch bản AI...', 'info');
-           addAgentLog('Biên Kịch Agent', `Đã nhận nội dung đầu vào. Tôi bắt đầu phân tách thành kịch bản phân cảnh cho chủ đề: ${promptValue}.`, '#a855f7');
+      const n = nodes.find(n => n.id === currentId);
+      if (!n) continue;
+
+      setNodes((nds) => nds.map((node) => node.id === currentId ? { ...node, data: { ...node.data, status: 'running' } } : node));
+
+      let outputHandlesToFollow: string[] | null = null; // null means follow all
+
+      // Simulate execution based on node type
+      if (n.type === 'trigger') {
+        addLog('Kích hoạt từ Trigger...', 'info');
+        await sleep(1000);
+      } else if (['inputNode', 'docInput', 'urlInput'].includes(n.type || '')) {
+        addLog('Đang xử lý Input Data...', 'info');
+        await sleep(1000);
+      } else if (n.type === 'aiNode') {
+        setAgentStatuses(s => ({ ...s, writer: 'thinking' }));
+        addAgentLog('Biên Kịch Agent', `Đang phân tích dữ liệu đầu vào để phân tách các cảnh phim ngắn...`, '#a855f7');
+        await sleep(1500);
+        
+        try {
+          const res = await fetch('http://localhost:3000/providers/generate-script', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: promptValue })
+          });
+          const result = await res.json();
+          if (result.success && result.data) {
+            currentScenes = result.data.map((item: any, idx: number) => ({
+              id: idx + 1,
+              title: `Cảnh ${idx + 1}`,
+              image: item.image || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&q=80',
+              text: item.text,
+              duration: 5,
+              fx: 'none',
+            }));
+            setScenes(currentScenes);
+            setSceneCount(currentScenes.length);
+            
+            setAgentStatuses(s => ({ ...s, writer: 'active' }));
+            addAgentLog('Biên Kịch Agent', `Đã phân tách xong ${currentScenes.length} phân cảnh cho video!`, '#a855f7');
+            await sleep(800);
+            
+            // Post outline in chat
+            const outline = currentScenes.map(sc => `- ${sc.title}: "${sc.text}"`).join('\n');
+            addAgentLog('Biên Kịch Agent', `Dàn ý kịch bản:\n${outline}`, '#a855f7');
+            await sleep(1000);
+            
+            addLog('AI Script tạo thành công', 'success');
+          }
+        } catch (e) {
+           addLog('AI Script failed', 'error');
         }
-      });
-      await sleep(1200);
-      addAgentLog('Đạo Diễn Agent', 'Kịch bản cần có nhịp điệu nhanh hơn ở phần mở đầu. Hãy thêm mô tả hành động trực quan cho Cảnh 1.', '#2563eb');
-      await sleep(1200);
-      addAgentLog('Biên Kịch Agent', 'Đồng ý. Tôi đã điều chỉnh lại lời thoại và bổ sung mô tả chuyển cảnh mượt mà.', '#a855f7');
-      await sleep(1000);
-      setNodes((nds) => nds.map((n) => (n.type === 'aiNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('AI Script đã hoàn thành xử lý kịch bản.', 'success');
-    }
-
-    // 4. Visual Node
-    const visualNodes = nodes.filter((n) => n.type === 'visualNode');
-    if (visualNodes.length > 0) {
-      setNodes((nds) => nds.map((n) => (n.type === 'visualNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      visualNodes.forEach(n => {
-        const subtype = n.data.subtype as string;
-        if (subtype === 'brandKit') {
-          addLog('Visual: Đang áp dụng thiết kế nhận diện Brand Kit (Logo, Colors)...', 'info');
-        } else if (subtype === 'background') {
-          addLog('Visual: Đang tạo lớp nền chuyển động cho video...', 'info');
-        } else {
-          addAgentLog('Biên Tập Agent', `Tôi bắt đầu phác thảo hình ảnh theo phong cách nghệ thuật ${imageStyle.toUpperCase()}.`, '#10b981');
+        setAgentStatuses(s => ({ ...s, writer: 'success' }));
+      } else if (n.type === 'visualNode') {
+        setAgentStatuses(s => ({ ...s, director: 'thinking' }));
+        addAgentLog('Đạo Diễn Agent', `Đang lên ý tưởng bối cảnh và tạo Prompt sinh ảnh AI cho ${currentScenes.length} cảnh...`, '#3b82f6');
+        await sleep(1800);
+        
+        setAgentStatuses(s => ({ ...s, director: 'active' }));
+        const visualSuggestions = currentScenes.map(sc => `- ${sc.title}: Góc máy Cinematic, bối cảnh khớp lời thoại. Prompt: "${sc.text}, photorealistic, 4k, ${imageStyle} style"`).join('\n');
+        addAgentLog('Đạo Diễn Agent', `Đề xuất bối cảnh hình ảnh phong cách ${imageStyle}:\n${visualSuggestions}`, '#3b82f6');
+        await sleep(1200);
+        
+        addLog('Xử lý Visual/Image Generation...', 'info');
+        setAgentStatuses(s => ({ ...s, director: 'success' }));
+      } else if (n.type === 'audioTTS') {
+        setAgentStatuses(s => ({ ...s, voice: 'thinking' }));
+        addAgentLog('Âm Thanh Agent', `Đang đo lường độ dài lời thoại và chuyển văn bản thành giọng nói AI...`, '#f97316');
+        await sleep(1800);
+        
+        setAgentStatuses(s => ({ ...s, voice: 'active' }));
+        const voiceDetails = currentScenes.map(sc => {
+          const words = sc.text.split(' ').length;
+          const duration = Math.max(3, Math.round(words * 0.3 / parseFloat(ttsSpeed)));
+          return `- ${sc.title}: ${words} từ -> ${duration} giây (${ttsVoice === 'nu-mien-bac' ? 'Vy Mai - Bắc' : 'Nam An - Bắc'})`;
+        }).join('\n');
+        
+        addAgentLog('Âm Thanh Agent', `Đã thiết lập giọng đọc và thời lượng thoại cho từng cảnh:\n${voiceDetails}`, '#f97316');
+        await sleep(1200);
+        
+        addLog('Xử lý TTS Audio...', 'info');
+        setAgentStatuses(s => ({ ...s, voice: 'success' }));
+      } else if (n.type === 'subtitle') {
+        setAgentStatuses(s => ({ ...s, writer: 'thinking' }));
+        addAgentLog('Biên Kịch Agent', `Nhận thông tin thời lượng từ Âm Thanh. Đang lập dòng phụ đề kiểu "${subStyle}" với màu sắc "${subColor}"...`, '#a855f7');
+        await sleep(1200);
+        
+        setAgentStatuses(s => ({ ...s, writer: 'success' }));
+        addLog('Xử lý Phụ đề/Hiệu ứng...', 'info');
+      } else if (n.type === 'renderNode') {
+        setAgentStatuses({ writer: 'thinking', director: 'thinking', voice: 'thinking' });
+        addAgentLog('Biên Kịch Agent', `Tất cả tài nguyên đã sẵn sàng! Đang chuyển tiếp sang Render Engine để ghép nối...`, '#a855f7');
+        await sleep(1000);
+        
+        addLog('Bắt đầu Render FFmpeg...', 'info');
+        await sleep(2000);
+        addLog('Render thành công', 'success');
+        
+        setAgentStatuses({ writer: 'success', director: 'success', voice: 'success' });
+        addAgentLog('Biên Kịch Agent', `Hội thoại kết thúc. Kịch bản phân cảnh đã được dựng thành video MP4 hoàn chỉnh!`, '#a855f7');
+      } else if (n.type === 'logicNode') {
+        const expression = n.data.expression || 'scenes.length > 2';
+        let conditionMet = false;
+        try {
+           // eslint-disable-next-line
+           const evalFunc = new Function('scenes', `return ${expression};`);
+           conditionMet = evalFunc(currentScenes);
+        } catch (e) {
+           conditionMet = false;
         }
-      });
-      await sleep(1500);
-      setNodes((nds) => nds.map((n) => (n.type === 'visualNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('Đã xử lý tác vụ Visual thành công.', 'success');
-    }
-
-    // 5. Audio TTS Node
-    const audioNodes = nodes.filter((n) => n.type === 'audioTTS');
-    if (audioNodes.length > 0) {
-      setNodes((nds) => nds.map((n) => (n.type === 'audioTTS' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      audioNodes.forEach(n => {
-        const subtype = n.data.subtype as string;
-        if (subtype === 'bgMusic') {
-          addLog('Audio: Đang nạp và đồng bộ nhạc nền (Background Music)...', 'info');
-        } else if (subtype === 'sfx') {
-          addLog('Audio: Đang chèn hiệu ứng âm thanh (SFX) chuyển cảnh...', 'info');
-        } else {
-          addAgentLog('Âm Thanh Agent', `Đang áp dụng giọng đọc "${ttsVoice === 'nu-mien-bac' ? 'Nữ Miền Bắc' : 'Nam Miền Nam'}" với tốc độ ${ttsSpeed}x.`, '#f59e0b');
-        }
-      });
-      await sleep(1500);
-      setNodes((nds) => nds.map((n) => (n.type === 'audioTTS' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('Đã hoàn thành sinh tệp âm thanh.', 'success');
-    }
-
-    // 6. Subtitle Node (Editing)
-    const subtitleNodes = nodes.filter((n) => n.type === 'subtitle');
-    if (subtitleNodes.length > 0) {
-      setNodes((nds) => nds.map((n) => (n.type === 'subtitle' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      subtitleNodes.forEach(n => {
-        const subtype = n.data.subtype as string;
-        if (subtype === 'watermark') {
-          addLog('Editing: Đang chèn Watermark/Logo bản quyền...', 'info');
-        } else if (subtype === 'transition') {
-          addLog('Editing: Đang áp dụng hiệu ứng chuyển cảnh mượt mà...', 'info');
-        } else if (subtype === 'aspectRatio') {
-          addLog('Editing: Đang căn chỉnh tỷ lệ khung hình video...', 'info');
-        } else {
-          addAgentLog('Biên Tập Agent', `Đang thiết lập lớp phủ phụ đề dạng chữ nghệ thuật "${subStyle.toUpperCase()}" với màu sắc ${subColor}.`, '#10b981');
-        }
-      });
-      await sleep(1000);
-      setNodes((nds) => nds.map((n) => (n.type === 'subtitle' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      addLog('Đã hoàn thành công đoạn biên tập Editing.', 'success');
-    }
-
-    // 6b. Code Node
-    const hasCodeNode = nodes.some((n) => n.type === 'codeNode');
-    if (hasCodeNode) {
-      setNodes((nds) => nds.map((n) => (n.type === 'codeNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      addLog('Đang chạy mã script lập trình JavaScript tùy chỉnh...', 'info');
-      await sleep(1200);
-      addLog('Thiết lập thành công bộ xử lý trung gian custom JS script.', 'success');
-      setNodes((nds) => nds.map((n) => (n.type === 'codeNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-    }
-
-    // 6c. Custom AI Prompt Node
-    const hasCustomAINode = nodes.some((n) => n.type === 'customAINode');
-    if (hasCustomAINode) {
-      setNodes((nds) => nds.map((n) => (n.type === 'customAINode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      addLog(`Đang gửi Custom Prompt tới mô hình AI: ${customAIModel.toUpperCase()}...`, 'info');
-      await sleep(1500);
-      addLog('AI đã phản hồi và dịch chuyển nội dung thành công.', 'success');
-      setNodes((nds) => nds.map((n) => (n.type === 'customAINode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-    }
-
-    // 7. Render Node
-    const renderNodes = nodes.filter((n) => n.type === 'renderNode');
-    if (renderNodes.length > 0) {
-      setNodes((nds) => nds.map((n) => (n.type === 'renderNode' ? { ...n, data: { ...n.data, status: 'running' } } : n)));
-      
-      let renderType = 'mp4';
-      renderNodes.forEach(n => {
-        if (n.data.subtype === 'social') {
-          addLog('Bắt đầu quy trình tự động phân phối mạng xã hội...', 'info');
-          renderType = 'social';
-        } else if (n.data.subtype === 'preview') {
-          addLog('Bắt đầu kết xuất bản nháp (Preview)...', 'info');
-          renderType = 'preview';
-        } else {
-          addLog('Bắt đầu quy trình biên tập và xuất bản...', 'info');
-        }
-      });
-      await sleep(800);
-
-      if (renderConfig.engine === 'ffmpeg') {
-        addLog('Đang khởi chạy FFmpeg Core Render Engine...', 'info');
-        await sleep(600);
-        addLog(`Cấu hình FFmpeg Codec: ${renderConfig.videoCodec.toUpperCase()} (CRF: ${renderConfig.crf})`, 'info');
-        await sleep(600);
-        addLog(`Đang điều chỉnh tỷ lệ khung hình ${aspectRatio} theo chế độ: ${renderConfig.resizeMode.toUpperCase()}`, 'info');
-        await sleep(600);
-        addLog(`Đang chèn nhãn Watermark mờ: "${renderConfig.watermarkText}" tại vị trí ${renderConfig.watermarkPos.toUpperCase()}`, 'info');
-        await sleep(600);
-        addLog(`Đang ghép nối các phân cảnh bằng hiệu ứng chuyển cảnh: ${renderConfig.transitionType.toUpperCase()}`, 'info');
-        await sleep(600);
-        addLog(`Đang trộn âm thuyết minh (voice-over) với nhạc nền (BG volume: ${renderConfig.audioMixBg}%)`, 'info');
-      } else if (renderConfig.engine === 'remotion') {
-        addLog('Đang khởi chạy Remotion React-based Animation Engine...', 'info');
-        await sleep(800);
-        addLog(`Nạp React Component Template: "${renderConfig.template}"`, 'info');
-        await sleep(800);
-        addLog(`Đang kết xuất khung hình hoạt họa ${renderConfig.fps} FPS song song với ${renderConfig.concurrency} luồng (Multi-threading)`, 'info');
-        await sleep(800);
-        addLog('Đang gộp chuỗi frame ảnh kết xuất thành video MP4 hoàn chỉnh...', 'info');
-      } else if (renderConfig.engine === 'hybrid') {
-        addLog('Đang kích hoạt quy trình Hybrid Render Engine...', 'info');
-        await sleep(600);
-        addLog(`[Remotion] Đang render các hoạt cảnh động phức tạp từ template: "${renderConfig.template}"`, 'info');
-        await sleep(800);
-        addLog(`[FFmpeg] Đang assemble, lồng tiếng, ghép phụ đề và tạo transition: ${renderConfig.transitionType.toUpperCase()}`, 'info');
+        addLog(`Logic Node: Evaluated ${expression} -> ${conditionMet}`, 'info');
+        outputHandlesToFollow = conditionMet ? ['true'] : ['false'];
+        await sleep(1000);
+      } else if (n.type === 'publishNode') {
+        addLog('Publish Node: Đang đẩy video lên ' + (n.data.platform || 'Mạng xã hội') + '...', 'info');
+        await sleep(1500);
+        addLog('Upload hoàn tất!', 'success');
       }
 
-      await sleep(1500);
-      setNodes((nds) => nds.map((n) => (n.type === 'renderNode' ? { ...n, data: { ...n.data, status: 'success' } } : n)));
-      
-      if (renderType === 'social') {
-         addLog(`Tải lên thành công! Video đã sẵn sàng trên nền tảng mạng xã hội.`, 'success');
-      } else {
-         addLog(`Xuất bản thành công tệp video MP4 chất lượng cao bằng engine ${renderConfig.engine.toUpperCase()}!`, 'success');
+      setNodes((nds) => nds.map((node) => node.id === currentId ? { ...node, data: { ...node.data, status: 'success' } } : node));
+
+      // Push outgoing targets
+      const outgoingEdges = edges.filter(e => e.source === currentId);
+      for (const e of outgoingEdges) {
+         if (outputHandlesToFollow) {
+            if (e.sourceHandle && outputHandlesToFollow.includes(e.sourceHandle)) {
+               queue.push(e.target);
+            }
+         } else {
+            queue.push(e.target);
+         }
       }
     }
 
@@ -1182,8 +1298,8 @@ function WorkflowBuilder() {
     setWorkflowCompleted(true);
     setCurrentTime(0);
     setActiveTab('timeline');
-    addLog('Mẫu video đã được dựng xong hoàn hảo!', 'success');
-  }, [nodes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes, renderConfig, aspectRatio, codeValue, customAIPrompt, customAIModel]);
+    addLog('Luồng công việc Graph đã thực thi xong!', 'success');
+  }, [nodes, scenes, promptValue, imageStyle, ttsVoice, ttsSpeed, subStyle, subColor, isRunning, addLog, addAgentLog, setNodes, renderConfig, aspectRatio, codeValue, customAIPrompt, customAIModel, setScenes, setSceneCount, writerModel, directorModel, writerSystemPrompt, directorSystemPrompt, voiceSystemPrompt]);
 
   const testNode = async () => {
     if (!selectedNode || isRunning) return;
@@ -1369,8 +1485,17 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             onClick={() => setCurrentTime(startOffset + 0.1)}
           >
             <Volume2 size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', display: 'flex', alignItems: 'center' }}>
               {trackMutes.audio ? '[Tắt tiếng]' : `TTS - ${ttsVoice === 'nu-mien-bac' ? 'Nữ Bắc' : 'Nam Nam'}`}
+              {!trackMutes.audio && scene.audioUrl && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); new Audio(scene.audioUrl!).play(); }} 
+                  style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0 4px', marginLeft: '4px' }}
+                  title="Nghe thử"
+                >
+                  <Play size={12} fill="currentColor" />
+                </button>
+              )}
             </span>
             <div className="waveform-visual" />
             <div className="trim-controls">
@@ -1604,10 +1729,41 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           
           <div className="sidebar-left">
             <div className="sidebar-header">
+              Mẫu Video Nhanh (Templates)
+            </div>
+            <div style={{ padding: '8px 16px 4px 16px', display: 'flex', gap: '8px', flexDirection: 'column' }}>
+              <button className="btn" style={{ fontSize: '12px', justifyContent: 'flex-start', background: 'var(--bg-app)', border: '1px solid var(--border)' }} onClick={() => loadTemplate('prompt')}>✨ Mẫu Tự động (Prompt)</button>
+              <button className="btn" style={{ fontSize: '12px', justifyContent: 'flex-start', background: 'var(--bg-app)', border: '1px solid var(--border)' }} onClick={() => loadTemplate('doc')}>📄 Mẫu Tài liệu (Upload)</button>
+              <button className="btn" style={{ fontSize: '12px', justifyContent: 'flex-start', background: 'var(--bg-app)', border: '1px solid var(--border)' }} onClick={() => loadTemplate('blog')}>📱 Mẫu Social (Shorts/TikTok)</button>
+              <button className="btn" style={{ fontSize: '12px', justifyContent: 'center', background: 'var(--accent)', color: 'white', border: 'none', marginTop: '4px' }} onClick={() => alert('Đang kết nối thư viện Cộng đồng (Marketplace)... Tính năng sẽ có trong bản cập nhật tới!')}>🌍 Chợ Template (Marketplace)</button>
+            </div>
+            <div className="sidebar-header" style={{ marginTop: '8px' }}>
               Nút Quy trình
             </div>
             <div className="sidebar-subtitle">
               Nodes Palette
+            </div>
+            
+            <div style={{ padding: '0 16px 12px 16px' }}>
+              <label className="btn-primary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', padding: '8px', borderRadius: '8px', fontSize: '13px' }}>
+                <Upload size={14} style={{ marginRight: '6px' }} /> Tải lên Tài nguyên
+                <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
+              </label>
+            </div>
+            
+            <div style={{ padding: '0 16px 12px 16px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Thư mục Local Watch</label>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  style={{ fontSize: '11px', padding: '4px 8px', flex: 1 }} 
+                  value={watchPath}
+                  onChange={(e) => setWatchPath(e.target.value)}
+                  placeholder="C:/Users/Admin/Assets"
+                />
+                <button className="btn" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={handleUpdateWatchPath}>Lưu</button>
+              </div>
             </div>
             
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
@@ -1652,8 +1808,18 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                   <div><div className="node-palette-name">Lồng Tiếng AI</div><div className="node-palette-desc">TTS đa giọng đọc</div></div>
                 </div>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'subtitle')}>
-                  <div className="node-icon-wrapper" style={{ backgroundColor: '#f43f5e' }}><Type size={14} /></div>
-                  <div><div className="node-palette-name">Phụ Đề</div><div className="node-palette-desc">Thêm phụ đề chữ chạy</div></div>
+                  <div className="node-icon-wrapper color-subtitle"><Type size={14} /></div>
+                  <div><div className="node-palette-name">Phụ Đề</div><div className="node-palette-desc">Tạo text trên video</div></div>
+                </div>
+              </div>
+
+              <div className="palette-category">
+                <GitBranch size={14} /> Điều Hướng & Biểu Thức
+              </div>
+              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
+                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'logicNode')}>
+                  <div className="node-icon-wrapper" style={{ backgroundColor: 'var(--accent)' }}><GitBranch size={14} /></div>
+                  <div><div className="node-palette-name">Logic / If Else</div><div className="node-palette-desc">Rẽ nhánh luồng</div></div>
                 </div>
               </div>
 
@@ -1674,7 +1840,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               <div className="palette-category">
                 <Film size={14} /> Xuất bản
               </div>
-              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '24px' }}>
+              <div className="palette-category"><GitBranch size={14} /> �i?u Hu?ng</div><div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}><div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'logicNode')}><div className="node-icon-wrapper" style={{ backgroundColor: 'var(--accent)' }}><GitBranch size={14} /></div><div><div className="node-palette-name">Logic Node</div><div className="node-palette-desc">R? nh�nh lu?ng</div></div></div></div><div className="palette-category"><Film size={14} /> Xu?t & Publish</div><div className="node-list" style={{ paddingTop: '8px', paddingBottom: '24px' }}>
                 <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'renderNode')}>
                   <div className="node-icon-wrapper color-render"><Film size={14} /></div>
                   <div><div className="node-palette-name">Xuất Bản</div><div className="node-palette-desc">Xuất video MP4</div></div>
@@ -2282,6 +2448,17 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         </div>
 
                         <div className="form-group">
+                          <label className="form-label">Thư mục Output Local (Tùy chọn):</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value={renderConfig.outputDir || ''} 
+                            onChange={(e) => updateRenderConfig('outputDir', e.target.value)} 
+                            placeholder="VD: C:/Users/Admin/Desktop"
+                          />
+                        </div>
+
+                        <div className="form-group">
                           <label className="form-label">Vị trí Watermark:</label>
                           <select className="form-select" value={renderConfig.watermarkPos} onChange={(e) => updateRenderConfig('watermarkPos', e.target.value as RenderConfig['watermarkPos'])}>
                             <option value="top-left">Góc trên - Trái</option>
@@ -2559,25 +2736,195 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                 )}
 
                 {activeTab === 'agents' && (
-                  <div className="logs-console" style={{ gap: '10px' }}>
-                    {agentLogs.length === 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', padding: '20px' }}>
-                        <Users size={28} strokeWidth={1.5} style={{ marginBottom: '8px' }} />
-                        <p style={{ fontSize: '12px' }}>Không có cuộc thảo luận nào. Nhấp <strong>Chạy thử</strong> để xem hoạt động Agent Orchestration.</p>
-                      </div>
-                    ) : (
-                      agentLogs.map((chat, idx) => (
-                        <div key={idx} style={{ padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', borderLeft: `4px solid ${chat.color}` }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <strong style={{ color: chat.color, fontSize: '12px' }}>{chat.agent}</strong>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{chat.time}</span>
+                    <div className="agent-orchestration-container">
+                      {/* Thẻ trạng thái các Agent */}
+                      <div className="agent-cards-row">
+                        {/* Biên kịch */}
+                        <div className={`agent-card ${agentStatuses.writer !== 'idle' ? 'active' : ''}`}>
+                          <div className="agent-card-header">
+                            <div className="agent-avatar-circle" style={{ backgroundColor: '#a855f7' }}>BK</div>
+                            <span className="agent-card-title">Biên Kịch</span>
                           </div>
-                          <p style={{ fontSize: '12px', color: 'var(--text-primary)', margin: 0 }}>{chat.message}</p>
+                          <select 
+                            className="agent-selector-select"
+                            value={writerModel}
+                            onChange={(e) => setWriterModel(e.target.value)}
+                            disabled={isRunning}
+                          >
+                            <option value="gpt-4o">GPT-4o</option>
+                            <option value="claude-3.5-sonnet">Claude 3.5</option>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                          </select>
+                          <button 
+                            className="icon-btn-small" 
+                            style={{ fontSize: '9px', border: 'none', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', padding: '2px 0', textAlign: 'left' }}
+                            onClick={() => setShowPrompts(p => ({ ...p, writer: !p.writer }))}
+                          >
+                            {showPrompts.writer ? '▲ Thu gọn' : '▼ Cấu hình Prompt'}
+                          </button>
+                          {showPrompts.writer && (
+                            <textarea 
+                              className="agent-prompt-textarea"
+                              value={writerSystemPrompt}
+                              onChange={(e) => setWriterSystemPrompt(e.target.value)}
+                              disabled={isRunning}
+                            />
+                          )}
+                          <div className="agent-status-badge">
+                            <span className={`agent-status-dot ${agentStatuses.writer}`} />
+                            <span style={{ fontSize: '9px' }}>
+                              {agentStatuses.writer === 'idle' && 'Đang chờ...'}
+                              {agentStatuses.writer === 'thinking' && 'Đang phân tích...'}
+                              {agentStatuses.writer === 'active' && 'Đang soạn kịch...'}
+                              {agentStatuses.writer === 'success' && 'Đã xong'}
+                            </span>
+                          </div>
                         </div>
-                      ))
-                    )}
-                  </div>
-                )}
+
+                        {/* Đạo diễn hình ảnh */}
+                        <div className={`agent-card ${agentStatuses.director !== 'idle' ? 'active' : ''}`}>
+                          <div className="agent-card-header">
+                            <div className="agent-avatar-circle" style={{ backgroundColor: '#3b82f6' }}>ĐD</div>
+                            <span className="agent-card-title">Đạo Diễn Visual</span>
+                          </div>
+                          <select 
+                            className="agent-selector-select"
+                            value={directorModel}
+                            onChange={(e) => setDirectorModel(e.target.value)}
+                            disabled={isRunning}
+                          >
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                            <option value="gpt-4o-mini">GPT-4o Mini</option>
+                            <option value="claude-3-haiku">Claude Haiku</option>
+                          </select>
+                          <button 
+                            className="icon-btn-small" 
+                            style={{ fontSize: '9px', border: 'none', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', padding: '2px 0', textAlign: 'left' }}
+                            onClick={() => setShowPrompts(p => ({ ...p, director: !p.director }))}
+                          >
+                            {showPrompts.director ? '▲ Thu gọn' : '▼ Cấu hình Prompt'}
+                          </button>
+                          {showPrompts.director && (
+                            <textarea 
+                              className="agent-prompt-textarea"
+                              value={directorSystemPrompt}
+                              onChange={(e) => setDirectorSystemPrompt(e.target.value)}
+                              disabled={isRunning}
+                            />
+                          )}
+                          <div className="agent-status-badge">
+                            <span className={`agent-status-dot ${agentStatuses.director}`} />
+                            <span style={{ fontSize: '9px' }}>
+                              {agentStatuses.director === 'idle' && 'Đang chờ...'}
+                              {agentStatuses.director === 'thinking' && 'Đang phác thảo...'}
+                              {agentStatuses.director === 'active' && 'Đang tạo ảnh...'}
+                              {agentStatuses.director === 'success' && 'Đã xong'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Âm thanh / TTS */}
+                        <div className={`agent-card ${agentStatuses.voice !== 'idle' ? 'active' : ''}`}>
+                          <div className="agent-card-header">
+                            <div className="agent-avatar-circle" style={{ backgroundColor: '#f97316' }}>AT</div>
+                            <span className="agent-card-title">Lồng Tiếng AI</span>
+                          </div>
+                          <select 
+                            className="agent-selector-select"
+                            value={ttsVoice}
+                            onChange={(e) => setTtsVoice(e.target.value)}
+                            disabled={isRunning}
+                          >
+                            <option value="nu-mien-bac">Vy Mai (Bắc)</option>
+                            <option value="nam-mien-bac">Nam An (Bắc)</option>
+                            <option value="nu-mien-nam">Thảo Chi (Nam)</option>
+                            <option value="nam-mien-nam">Minh Hoàng (Nam)</option>
+                          </select>
+                          <button 
+                            className="icon-btn-small" 
+                            style={{ fontSize: '9px', border: 'none', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', padding: '2px 0', textAlign: 'left' }}
+                            onClick={() => setShowPrompts(p => ({ ...p, voice: !p.voice }))}
+                          >
+                            {showPrompts.voice ? '▲ Thu gọn' : '▼ Cấu hình Prompt'}
+                          </button>
+                          {showPrompts.voice && (
+                            <textarea 
+                              className="agent-prompt-textarea"
+                              value={voiceSystemPrompt}
+                              onChange={(e) => setVoiceSystemPrompt(e.target.value)}
+                              disabled={isRunning}
+                            />
+                          )}
+                          <div className="agent-status-badge">
+                            <span className={`agent-status-dot ${agentStatuses.voice}`} />
+                            <span style={{ fontSize: '9px' }}>
+                              {agentStatuses.voice === 'idle' && 'Đang chờ...'}
+                              {agentStatuses.voice === 'thinking' && 'Cân đối thoại...'}
+                              {agentStatuses.voice === 'active' && 'Đang phát âm...'}
+                              {agentStatuses.voice === 'success' && 'Đã xong'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Khung chat hội thoại */}
+                      <div className="agent-chat-thread">
+                        {agentLogs.length === 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', padding: '20px' }}>
+                            <Users size={28} strokeWidth={1.5} style={{ marginBottom: '8px' }} />
+                            <p style={{ fontSize: '12px', textAlign: 'center' }}>Chưa có thảo luận nào giữa các AI Agents. Nhấn <strong>Chạy thử</strong> để theo dõi.</p>
+                          </div>
+                        ) : (
+                          <>
+                            {agentLogs.map((chat, idx) => {
+                              const isLeft = chat.agent !== 'Biên Tập Agent';
+                              return (
+                                <div 
+                                  key={idx} 
+                                  className={`agent-chat-bubble ${isLeft ? 'left' : 'right'}`}
+                                  style={{ borderLeft: `4px solid ${chat.color}`, background: 'var(--bg-card)' }}
+                                >
+                                  <div className="agent-bubble-header">
+                                    <span className="agent-bubble-name" style={{ color: chat.color }}>{chat.agent}</span>
+                                    <span className="agent-bubble-time">{chat.time}</span>
+                                  </div>
+                                  <p className="agent-bubble-text">{chat.message}</p>
+                                </div>
+                              );
+                            })}
+                            
+                            {/* Blinking Typing Indicators */}
+                            {(agentStatuses.writer === 'thinking' || agentStatuses.writer === 'active') && (
+                              <div className="typing-indicator" style={{ borderLeft: '4px solid #a855f7' }}>
+                                <span className="agent-bubble-name" style={{ color: '#a855f7', fontSize: '9px', marginRight: '6px' }}>Biên Kịch</span>
+                                <div className="typing-indicator-dot"></div>
+                                <div className="typing-indicator-dot"></div>
+                                <div className="typing-indicator-dot"></div>
+                              </div>
+                            )}
+                            {(agentStatuses.director === 'thinking' || agentStatuses.director === 'active') && (
+                              <div className="typing-indicator" style={{ borderLeft: '4px solid #3b82f6' }}>
+                                <span className="agent-bubble-name" style={{ color: '#3b82f6', fontSize: '9px', marginRight: '6px' }}>Đạo Diễn</span>
+                                <div className="typing-indicator-dot"></div>
+                                <div className="typing-indicator-dot"></div>
+                                <div className="typing-indicator-dot"></div>
+                              </div>
+                            )}
+                            {(agentStatuses.voice === 'thinking' || agentStatuses.voice === 'active') && (
+                              <div className="typing-indicator" style={{ borderLeft: '4px solid #f97316' }}>
+                                <span className="agent-bubble-name" style={{ color: '#f97316', fontSize: '9px', marginRight: '6px' }}>Âm Thanh</span>
+                                <div className="typing-indicator-dot"></div>
+                                <div className="typing-indicator-dot"></div>
+                                <div className="typing-indicator-dot"></div>
+                              </div>
+                            )}
+                            
+                            <div ref={chatEndRef} />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
 
