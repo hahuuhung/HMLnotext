@@ -87,6 +87,9 @@ interface Scene {
   duration: number;
   fx: string;
   audioUrl?: string;
+  transition?: string;
+  bgFx?: string;
+  speed?: string;
 }
 
 interface AgentMessage {
@@ -959,6 +962,18 @@ function WorkflowBuilder() {
     { id: 'job-1', name: 'Xuất video_hml_916.mp4', progress: 100, status: 'Hoàn thành' }
   ]);
 
+  // AI Editing Assistant States
+  const [aiStyleGenre, setAiStyleGenre] = useState<'cinematic' | 'tiktok' | 'ambient' | 'action'>('cinematic');
+  const [customAiRequest, setCustomAiRequest] = useState('');
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    fx: string;
+    transition: string;
+    bgFx: string;
+    speed: string;
+    reason: string;
+  } | null>(null);
+
   const addHistory = useCallback((actionText: string) => {
     const time = new Date().toTimeString().split(' ')[0];
     setHistoryList(prev => [...prev, `${time} - ${actionText}`]);
@@ -1208,6 +1223,149 @@ function WorkflowBuilder() {
     addLog(`Đã áp dụng hiệu ứng ${fxNameMap[fxValue] || fxValue} cho Cảnh ${idx + 1}`, 'success');
   };
 
+  // Transition change handler
+  const handleSceneTransitionChange = (idx: number, transVal: string) => {
+    setScenes((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, transition: transVal } : s))
+    );
+    const transNameMap: Record<string, string> = {
+      none: 'Không chuyển cảnh',
+      fade: 'Mờ dần (Fade)',
+      dissolve: 'Hòa tan (Dissolve)',
+      wipe: 'Quét (Wipe)',
+      slide: 'Trượt (Slide)',
+      zoom: 'Phóng to (Zoom)',
+      spin: 'Xoay tròn (Spin)',
+      glitch: 'Nhiễu sóng (Glitch Trans)'
+    };
+    addLog(`Đã áp dụng chuyển cảnh ${transNameMap[transVal] || transVal} cho Cảnh ${idx + 1}`, 'success');
+  };
+
+  // Background FX change handler
+  const handleSceneBgFxChange = (idx: number, bgFxVal: string) => {
+    setScenes((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, bgFx: bgFxVal } : s))
+    );
+    const bgFxNameMap: Record<string, string> = {
+      none: 'Không có hiệu ứng nền',
+      particles: 'Hạt lấp lánh (Particles)',
+      bokeh: 'Đèn Bokeh (Bokeh Lights)',
+      smoke: 'Sương mù cinematic (Smoke)',
+      gradient: 'Màu chuyển động (Gradient Wave)',
+      grid: 'Lưới Retro (Retro Grid)',
+      starfield: 'Vũ trụ sao (Starfield)'
+    };
+    addLog(`Đã áp dụng hiệu ứng nền ${bgFxNameMap[bgFxVal] || bgFxVal} cho Cảnh ${idx + 1}`, 'success');
+  };
+
+  // Playback Speed change handler
+  const handleSceneSpeedChange = (idx: number, speedVal: string) => {
+    setScenes((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, speed: speedVal } : s))
+    );
+    const speedNameMap: Record<string, string> = {
+      normal: 'Bình thường (1.0x)',
+      slow_05: 'Chậm (Slow Motion 0.5x)',
+      slow_025: 'Cực chậm (Slow Motion 0.25x)',
+      fast_15: 'Nhanh (Fast Forward 1.5x)',
+      fast_20: 'Siêu nhanh (Fast Forward 2.0x)',
+      timelapse: 'Tua nhanh thời gian (Time Lapse)'
+    };
+    addLog(`Đã đặt tốc độ phát ${speedNameMap[speedVal] || speedVal} cho Cảnh ${idx + 1}`, 'success');
+  };
+
+  // Generate AI suggestions logic
+  const generateAiSuggestions = useCallback(() => {
+    const activeScene = scenes[activeSceneIndex];
+    if (!activeScene) return;
+
+    setIsGeneratingSuggestions(true);
+    
+    setTimeout(() => {
+      const text = (activeScene.text + " " + customAiRequest).toLowerCase();
+      let fx = 'cinematic';
+      let transition = 'fade';
+      let bgFx = 'particles';
+      let speed = 'normal';
+      let reason = 'Đề xuất phong cách tiêu chuẩn từ trợ lý dựng phim AI.';
+
+      // Genre styling
+      if (aiStyleGenre === 'cinematic') {
+        fx = 'cinematic';
+        transition = 'dissolve';
+        bgFx = 'bokeh';
+        speed = 'slow_05';
+        reason = 'Phong cách Điện ảnh Sâu lắng: Đề xuất chuyển động chậm Slow Motion (0.5x) kết hợp hiệu ứng đèn Bokeh để tạo chiều sâu nghệ thuật.';
+      } else if (aiStyleGenre === 'tiktok') {
+        fx = 'glitch';
+        transition = 'zoom';
+        bgFx = 'gradient';
+        speed = 'fast_15';
+        reason = 'Phong cách TikTok Năng động: Nhịp điệu nhanh (1.5x), chuyển cảnh phóng to (Zoom) và màu chuyển động gradient bắt mắt.';
+      } else if (aiStyleGenre === 'ambient') {
+        fx = 'blur';
+        transition = 'fade';
+        bgFx = 'particles';
+        speed = 'slow_025';
+        reason = 'Phong cách Thư giãn / Không gian (Ambient): Sử dụng tốc độ cực chậm (0.25x), làm mờ mềm mại và các hạt lơ lửng thư thái.';
+      } else if (aiStyleGenre === 'action') {
+        fx = 'glitch';
+        transition = 'spin';
+        bgFx = 'grid';
+        speed = 'fast_20';
+        reason = 'Phong cách Kịch tính / Hành động: Đặt tốc độ siêu nhanh (2.0x) và chuyển cảnh xoay (Spin) mạnh mẽ tạo nhịp điệu dồn dập.';
+      }
+
+      // Keyword based overrides (Heuristics)
+      if (text.includes('cà phê') || text.includes('nước chấm') || text.includes('sản phẩm') || text.includes('brand') || text.includes('hương vị')) {
+        fx = 'cinematic';
+        bgFx = 'bokeh';
+        speed = 'slow_05';
+        reason = 'Tối ưu sản phẩm F&B: AI phát hiện phân cảnh giới thiệu sản phẩm. Khuyên dùng hiệu ứng Bokeh làm nổi bật chủ thể và Slow Motion 0.5x tăng tính thèm thuồng.';
+      } else if (text.includes('vũ trụ') || text.includes('sao') || text.includes('bầu trời') || text.includes('không gian') || text.includes('galaxy') || text.includes('star')) {
+        fx = 'cinematic';
+        bgFx = 'starfield';
+        reason = 'Chủ đề Vũ trụ: Sử dụng nền Starfield mô phỏng bầu trời sao lấp lánh và Cinematic Glow tạo chiều sâu lôi cuốn.';
+      } else if (text.includes('công nghệ') || text.includes('cyber') || text.includes('robot') || text.includes('máy tính') || text.includes('ai') || text.includes('lập trình')) {
+        fx = 'glitch';
+        bgFx = 'grid';
+        transition = 'glitch';
+        reason = 'Chủ đề Công nghệ: Sử dụng lưới Retro Grid kết hợp màu nhiễu sóng Glitch để thể hiện nhịp điệu kỹ thuật số tương lai.';
+      } else if (text.includes('nhanh') || text.includes('chạy') || text.includes('vội') || text.includes('hối hả') || text.includes('fast') || text.includes('speed') || text.includes('bay')) {
+        speed = 'fast_15';
+        transition = 'zoom';
+        reason = 'Nhịp điệu nhanh: Đề xuất tốc độ nhanh (1.5x) và chuyển cảnh phóng to để tạo năng lượng dồn dập.';
+      } else if (text.includes('chậm') || text.includes('chầm chậm') || text.includes('tí tách') || text.includes('từ từ') || text.includes('rơi') || text.includes('nguội')) {
+        speed = 'slow_05';
+        transition = 'fade';
+        reason = 'Nhịp điệu chậm rãi: Tự động đề xuất Slow Motion 0.5x cùng chuyển cảnh mờ dần (Fade) giúp người xem thưởng thức từng khoảnh khắc.';
+      } else if (text.includes('buồn') || text.includes('lạnh') || text.includes('tối') || text.includes('hoài niệm') || text.includes('xưa') || text.includes('kỷ niệm') || text.includes('đặc')) {
+        fx = 'vintage';
+        bgFx = 'smoke';
+        reason = 'Chủ đề Hoài cổ / Tâm trạng: Màu Vintage ấm áp cùng sương khói mờ ảo gợi cảm giác hoài niệm và sâu lắng.';
+      }
+
+      setAiSuggestions({ fx, transition, bgFx, speed, reason });
+      setIsGeneratingSuggestions(false);
+      addHistory(`Đã tính toán gợi ý AI cho Cảnh ${activeSceneIndex + 1}`);
+      addLog(`Trợ lý AI đã đưa ra gợi ý cho Cảnh ${activeSceneIndex + 1}`, 'success');
+    }, 1200);
+  }, [activeSceneIndex, scenes, aiStyleGenre, customAiRequest, addHistory]);
+
+  const applyAllAiSuggestions = useCallback(() => {
+    if (!aiSuggestions) return;
+    const activeScene = scenes[activeSceneIndex];
+    if (!activeScene) return;
+
+    handleSceneFxChange(activeSceneIndex, aiSuggestions.fx);
+    handleSceneTransitionChange(activeSceneIndex, aiSuggestions.transition);
+    handleSceneBgFxChange(activeSceneIndex, aiSuggestions.bgFx);
+    handleSceneSpeedChange(activeSceneIndex, aiSuggestions.speed);
+    
+    addHistory(`Đã áp dụng toàn bộ gợi ý AI cho Cảnh ${activeSceneIndex + 1}`);
+    addLog(`Đã áp dụng tất cả gợi ý AI cho Cảnh ${activeSceneIndex + 1}`, 'success');
+  }, [aiSuggestions, activeSceneIndex, scenes, handleSceneFxChange, handleSceneTransitionChange, handleSceneBgFxChange, handleSceneSpeedChange, addHistory]);
+
   // Calculate total duration based on selected scenes
   const totalDuration = scenes.slice(0, sceneCount).reduce((acc, s) => acc + s.duration, 0);
   const [timelineScale, setTimelineScale] = useState(60); // pixels per second (zoom state)
@@ -1322,8 +1480,19 @@ function WorkflowBuilder() {
   const getFxClass = () => {
     if (!trackVisibility.fx) return '';
     const activeScene = scenes[activeSceneIndex];
-    if (!activeScene || !activeScene.fx || activeScene.fx === 'none') return '';
-    return `fx-${activeScene.fx}`;
+    if (!activeScene) return '';
+    
+    const classes = [];
+    if (activeScene.fx && activeScene.fx !== 'none') {
+      classes.push(`fx-${activeScene.fx}`);
+    }
+    if (activeScene.bgFx && activeScene.bgFx !== 'none') {
+      classes.push(`bgfx-${activeScene.bgFx}`);
+    }
+    if (activeScene.speed && activeScene.speed !== 'normal') {
+      classes.push(`speed-${activeScene.speed}`);
+    }
+    return classes.join(' ');
   };
 
   // Helper to load templates
@@ -3443,15 +3612,17 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
 
                 {/* Active scene configurations */}
                 {workflowCompleted && (
-                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid var(--border-dark)' }}>
-                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)', marginBottom: '12px' }}>
+                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)', marginBottom: '4px' }}>
                       Thiết lập Cảnh {activeSceneIndex + 1}
                     </h4>
-                    <div className="form-group" style={{ marginBottom: '12px' }}>
-                      <label className="form-label">Bộ lọc hiệu ứng FX:</label>
+                    
+                    {/* Bộ lọc hiệu ứng */}
+                    <div className="form-group">
+                      <label className="form-label">Bộ lọc màu sắc (FX Filter):</label>
                       <select 
                         className="form-select"
-                        value={scenes[activeSceneIndex].fx}
+                        value={scenes[activeSceneIndex].fx || 'none'}
                         onChange={(e) => handleSceneFxChange(activeSceneIndex, e.target.value)}
                       >
                         <option value="none">Không có hiệu ứng</option>
@@ -3462,6 +3633,62 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         <option value="blur">Soft Blur (Làm mờ)</option>
                       </select>
                     </div>
+
+                    {/* Hiệu ứng chuyển cảnh */}
+                    <div className="form-group">
+                      <label className="form-label">Hiệu ứng chuyển cảnh (Transition):</label>
+                      <select 
+                        className="form-select"
+                        value={scenes[activeSceneIndex].transition || 'none'}
+                        onChange={(e) => handleSceneTransitionChange(activeSceneIndex, e.target.value)}
+                      >
+                        <option value="none">Không chuyển cảnh</option>
+                        <option value="fade">Mờ dần (Fade)</option>
+                        <option value="dissolve">Hòa tan (Dissolve)</option>
+                        <option value="wipe">Quét (Wipe)</option>
+                        <option value="slide">Trượt (Slide)</option>
+                        <option value="zoom">Phóng to (Zoom)</option>
+                        <option value="spin">Xoay tròn (Spin)</option>
+                        <option value="glitch">Nhiễu sóng (Glitch Trans)</option>
+                      </select>
+                    </div>
+
+                    {/* Hiệu ứng nền */}
+                    <div className="form-group">
+                      <label className="form-label">Hiệu ứng nền (Background FX):</label>
+                      <select 
+                        className="form-select"
+                        value={scenes[activeSceneIndex].bgFx || 'none'}
+                        onChange={(e) => handleSceneBgFxChange(activeSceneIndex, e.target.value)}
+                      >
+                        <option value="none">Không có hiệu ứng nền</option>
+                        <option value="particles">Hạt lấp lánh (Particles)</option>
+                        <option value="bokeh">Đèn Bokeh (Bokeh Lights)</option>
+                        <option value="smoke">Sương mù cinematic (Smoke)</option>
+                        <option value="gradient">Màu chuyển động (Gradient Wave)</option>
+                        <option value="grid">Lưới Retro (Retro Grid)</option>
+                        <option value="starfield">Vũ trụ sao (Starfield)</option>
+                      </select>
+                    </div>
+
+                    {/* Tốc độ phát */}
+                    <div className="form-group">
+                      <label className="form-label">Tốc độ phát (Speed):</label>
+                      <select 
+                        className="form-select"
+                        value={scenes[activeSceneIndex].speed || 'normal'}
+                        onChange={(e) => handleSceneSpeedChange(activeSceneIndex, e.target.value)}
+                      >
+                        <option value="normal">Bình thường (1.0x)</option>
+                        <option value="slow_05">Chậm (Slow Motion 0.5x)</option>
+                        <option value="slow_025">Cực chậm (Slow Motion 0.25x)</option>
+                        <option value="fast_15">Nhanh (Fast Forward 1.5x)</option>
+                        <option value="fast_20">Siêu nhanh (Fast Forward 2.0x)</option>
+                        <option value="timelapse">Tua nhanh thời gian (Time Lapse)</option>
+                      </select>
+                    </div>
+
+                    {/* Thời lượng */}
                     <div className="form-group">
                       <label className="form-label">Thời lượng cảnh (giây):</label>
                       <input 
@@ -3937,47 +4164,299 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                 )}
 
                 {leftTab === 'filters' && (
-                  <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <input 
                       type="text" 
                       className="shotcut-search-bar" 
-                      placeholder="Tìm bộ lọc..." 
+                      placeholder="Tìm hiệu ứng..." 
                       value={filterSearch}
                       onChange={(e) => setFilterSearch(e.target.value)}
                     />
+
+                    {/* Trợ lý Dựng phim AI (AI Video Editing Assistant) */}
+                    <div className="ai-assistant-container" style={{ padding: '12px', background: 'rgba(30, 27, 46, 0.45)', backdropFilter: 'blur(10px)', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.3)', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#a78bfa', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          ✨ TRỢ LÝ DỰNG PHIM AI
+                        </span>
+                      </div>
+                      
+                      {/* Thể loại */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                        <label style={{ fontSize: '10px', color: '#8d8a98' }}>Phong cách Video:</label>
+                        <select 
+                          value={aiStyleGenre} 
+                          onChange={(e) => setAiStyleGenre(e.target.value as any)}
+                          style={{ background: '#13111c', border: '1px solid #3d3b4f', borderRadius: '4px', padding: '4px', color: '#e2e0e8', fontSize: '11px', outline: 'none' }}
+                        >
+                          <option value="cinematic">Cinematic Sâu lắng</option>
+                          <option value="tiktok">TikTok Hot Trend</option>
+                          <option value="ambient">Thư giãn / Ambient</option>
+                          <option value="action">Năng động / Hành động</option>
+                        </select>
+                      </div>
+
+                      {/* Yêu cầu tùy chỉnh */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
+                        <label style={{ fontSize: '10px', color: '#8d8a98' }}>Yêu cầu tùy chỉnh (Tùy chọn):</label>
+                        <textarea 
+                          value={customAiRequest}
+                          onChange={(e) => setCustomAiRequest(e.target.value)}
+                          placeholder="Nhập yêu cầu (VD: làm cho cảnh này gay cấn, hoài niệm hơn...)"
+                          style={{ background: '#13111c', border: '1px solid #3d3b4f', borderRadius: '4px', padding: '6px', color: '#e2e0e8', fontSize: '11px', height: '40px', resize: 'none', outline: 'none' }}
+                        />
+                      </div>
+
+                      <button 
+                        className="ai-assistant-btn-magic"
+                        disabled={isGeneratingSuggestions}
+                        onClick={generateAiSuggestions}
+                        style={{
+                          width: '100%',
+                          padding: '6px 12px',
+                          background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: '#fff',
+                          fontWeight: 'bold',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 0 10px rgba(124, 58, 237, 0.4)'
+                        }}
+                      >
+                        {isGeneratingSuggestions ? (
+                          <>
+                            <span className="ai-spinner" style={{ display: 'inline-block', width: '10px', height: '10px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                            Đang phân tích kịch bản...
+                          </>
+                        ) : (
+                          '🪄 Nhận Gợi ý Hiệu ứng AI'
+                        )}
+                      </button>
+
+                      {/* Hiển thị kết quả gợi ý */}
+                      {aiSuggestions && (
+                        <div className="ai-suggestion-box" style={{ marginTop: '12px', padding: '10px', background: 'rgba(15, 12, 25, 0.65)', borderRadius: '6px', border: '1px solid rgba(139, 92, 246, 0.2)', fontSize: '11px' }}>
+                          <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>
+                            Đề xuất tối ưu từ AI:
+                          </span>
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>• Bộ lọc: <strong style={{ color: '#ec4899' }}>{aiSuggestions.fx.toUpperCase()}</strong></span>
+                              <button 
+                                onClick={() => {
+                                  handleSceneFxChange(activeSceneIndex, aiSuggestions.fx);
+                                  addHistory(`Áp dụng bộ lọc ${aiSuggestions.fx} theo gợi ý AI cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                                style={{ background: '#2563eb', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
+                              >
+                                Áp dụng
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>• Chuyển cảnh: <strong style={{ color: '#3b82f6' }}>{aiSuggestions.transition.toUpperCase()}</strong></span>
+                              <button 
+                                onClick={() => {
+                                  handleSceneTransitionChange(activeSceneIndex, aiSuggestions.transition);
+                                  addHistory(`Áp dụng chuyển cảnh ${aiSuggestions.transition} theo gợi ý AI cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                                style={{ background: '#2563eb', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
+                              >
+                                Áp dụng
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>• Hiệu ứng nền: <strong style={{ color: '#10b981' }}>{aiSuggestions.bgFx.toUpperCase()}</strong></span>
+                              <button 
+                                onClick={() => {
+                                  handleSceneBgFxChange(activeSceneIndex, aiSuggestions.bgFx);
+                                  addHistory(`Áp dụng hiệu ứng nền ${aiSuggestions.bgFx} theo gợi ý AI cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                                style={{ background: '#2563eb', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
+                              >
+                                Áp dụng
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>• Tốc độ: <strong style={{ color: '#f59e0b' }}>{aiSuggestions.speed.toUpperCase()}</strong></span>
+                              <button 
+                                onClick={() => {
+                                  handleSceneSpeedChange(activeSceneIndex, aiSuggestions.speed);
+                                  addHistory(`Đặt tốc độ ${aiSuggestions.speed} theo gợi ý AI cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                                style={{ background: '#2563eb', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '9px', padding: '2px 6px', cursor: 'pointer' }}
+                              >
+                                Áp dụng
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: '10px', color: '#9ca3af', borderTop: '1px solid rgba(139, 92, 246, 0.15)', paddingTop: '6px', marginBottom: '8px', lineHeight: '1.4' }}>
+                            💡 <em>{aiSuggestions.reason}</em>
+                          </div>
+
+                          <button 
+                            onClick={applyAllAiSuggestions}
+                            style={{
+                              width: '100%',
+                              padding: '5px',
+                              background: '#10b981',
+                              border: 'none',
+                              borderRadius: '4px',
+                              color: '#fff',
+                              fontWeight: 'bold',
+                              fontSize: '10px',
+                              cursor: 'pointer',
+                              textAlign: 'center'
+                            }}
+                          >
+                            Áp dụng tất cả gợi ý AI
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     
-                    <div style={{ padding: '6px', background: '#15141e', borderRadius: '4px', marginBottom: '12px' }}>
-                      <span style={{ fontSize: '10px', color: '#8d8a98' }}>Bộ lọc hiện tại:</span>
-                      <div style={{ fontSize: '12px', color: '#fff', fontWeight: 600, marginTop: '4px' }}>
-                        {scenes[activeSceneIndex]?.fx === 'none' ? 'Không có bộ lọc' : scenes[activeSceneIndex]?.fx.toUpperCase()}
+                    {/* Hiện tại */}
+                    <div style={{ padding: '8px 12px', background: '#15141e', borderRadius: '6px', border: '1px solid #2d2b38', fontSize: '11px' }}>
+                      <span style={{ fontSize: '10px', color: '#8d8a98', display: 'block', marginBottom: '4px' }}>Hiệu ứng đang chọn (Cảnh {activeSceneIndex + 1}):</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', color: '#fff' }}>
+                        <div>• Bộ lọc: <strong>{scenes[activeSceneIndex]?.fx?.toUpperCase() || 'NONE'}</strong></div>
+                        <div>• Chuyển cảnh: <strong>{scenes[activeSceneIndex]?.transition?.toUpperCase() || 'NONE'}</strong></div>
+                        <div>• Nền: <strong>{scenes[activeSceneIndex]?.bgFx?.toUpperCase() || 'NONE'}</strong></div>
+                        <div>• Tốc độ: <strong>{scenes[activeSceneIndex]?.speed?.toUpperCase() || 'NORMAL'}</strong></div>
                       </div>
                     </div>
 
-                    <span style={{ fontSize: '11px', color: '#8d8a98', fontWeight: 500 }}>Bộ lọc video khả dụng:</span>
-                    <div className="shotcut-filter-list">
-                      {[
-                        { key: 'cinematic', label: 'Cinematic Glow' },
-                        { key: 'vintage', label: 'Vintage Sepia' },
-                        { key: 'noir', label: 'Noir Grayscale' },
-                        { key: 'glitch', label: 'Glitch Art' },
-                        { key: 'blur', label: 'Soft Blur' },
-                        { key: 'none', label: 'Bỏ bộ lọc' }
-                      ]
-                        .filter(item => item.label.toLowerCase().includes(filterSearch.toLowerCase()))
-                        .map(item => (
-                          <div key={item.key} className="shotcut-filter-item">
-                            <span>{item.label}</span>
-                            <button 
-                              className="shotcut-filter-add-btn" 
-                              onClick={() => {
-                                handleSceneFxChange(activeSceneIndex, item.key);
-                                addHistory(`Áp dụng bộ lọc ${item.label} cho Cảnh ${activeSceneIndex + 1}`);
-                              }}
-                            >
-                              +
-                            </button>
-                          </div>
-                        ))}
+                    {/* Category 1: Bộ lọc màu sắc */}
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#8d8a98', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Bộ lọc màu sắc (Color FX):</span>
+                      <div className="shotcut-filter-list" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {[
+                          { key: 'cinematic', label: 'Cinematic Glow' },
+                          { key: 'vintage', label: 'Vintage Sepia' },
+                          { key: 'noir', label: 'Noir Grayscale' },
+                          { key: 'glitch', label: 'Glitch Art' },
+                          { key: 'blur', label: 'Soft Blur' },
+                          { key: 'none', label: 'Bỏ bộ lọc' }
+                        ]
+                          .filter(item => item.label.toLowerCase().includes(filterSearch.toLowerCase()))
+                          .map(item => (
+                            <div key={item.key} className="shotcut-filter-item">
+                              <span>{item.label}</span>
+                              <button 
+                                className="shotcut-filter-add-btn" 
+                                onClick={() => {
+                                  handleSceneFxChange(activeSceneIndex, item.key);
+                                  addHistory(`Áp dụng bộ lọc ${item.label} cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Category 2: Hiệu ứng chuyển cảnh */}
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#8d8a98', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Chuyển cảnh (Transitions):</span>
+                      <div className="shotcut-filter-list" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {[
+                          { key: 'none', label: 'Không chuyển cảnh' },
+                          { key: 'fade', label: 'Mờ dần (Fade)' },
+                          { key: 'dissolve', label: 'Hòa tan (Dissolve)' },
+                          { key: 'wipe', label: 'Quét cảnh (Wipe)' },
+                          { key: 'slide', label: 'Trượt cảnh (Slide)' },
+                          { key: 'zoom', label: 'Phóng to (Zoom)' },
+                          { key: 'spin', label: 'Xoay tròn (Spin)' },
+                          { key: 'glitch', label: 'Nhiễu sóng (Glitch)' }
+                        ]
+                          .filter(item => item.label.toLowerCase().includes(filterSearch.toLowerCase()))
+                          .map(item => (
+                            <div key={item.key} className="shotcut-filter-item">
+                              <span>{item.label}</span>
+                              <button 
+                                className="shotcut-filter-add-btn" 
+                                style={{ backgroundColor: '#2563eb' }}
+                                onClick={() => {
+                                  handleSceneTransitionChange(activeSceneIndex, item.key);
+                                  addHistory(`Áp dụng chuyển cảnh ${item.label} cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Category 3: Hiệu ứng nền */}
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#8d8a98', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>3. Hiệu ứng nền (Background FX):</span>
+                      <div className="shotcut-filter-list" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {[
+                          { key: 'none', label: 'Không hiệu ứng nền' },
+                          { key: 'particles', label: 'Hạt lấp lánh (Particles)' },
+                          { key: 'bokeh', label: 'Đèn Bokeh (Bokeh)' },
+                          { key: 'smoke', label: 'Sương mù khói (Smoke)' },
+                          { key: 'gradient', label: 'Màu chuyển động (Gradient)' },
+                          { key: 'grid', label: 'Lưới Retro (Grid)' },
+                          { key: 'starfield', label: 'Vũ trụ sao (Starfield)' }
+                        ]
+                          .filter(item => item.label.toLowerCase().includes(filterSearch.toLowerCase()))
+                          .map(item => (
+                            <div key={item.key} className="shotcut-filter-item">
+                              <span>{item.label}</span>
+                              <button 
+                                className="shotcut-filter-add-btn" 
+                                style={{ backgroundColor: '#10b981' }}
+                                onClick={() => {
+                                  handleSceneBgFxChange(activeSceneIndex, item.key);
+                                  addHistory(`Áp dụng hiệu ứng nền ${item.label} cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Category 4: Tốc độ phát */}
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#8d8a98', fontWeight: 600, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>4. Tốc độ (Speed FX):</span>
+                      <div className="shotcut-filter-list" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {[
+                          { key: 'normal', label: 'Bình thường (1.0x)' },
+                          { key: 'slow_05', label: 'Chậm (Slow 0.5x)' },
+                          { key: 'slow_025', label: 'Cực chậm (Slow 0.25x)' },
+                          { key: 'fast_15', label: 'Nhanh (Fast 1.5x)' },
+                          { key: 'fast_20', label: 'Siêu nhanh (Fast 2.0x)' },
+                          { key: 'timelapse', label: 'Time Lapse (Timelapse)' }
+                        ]
+                          .filter(item => item.label.toLowerCase().includes(filterSearch.toLowerCase()))
+                          .map(item => (
+                            <div key={item.key} className="shotcut-filter-item">
+                              <span>{item.label}</span>
+                              <button 
+                                className="shotcut-filter-add-btn" 
+                                style={{ backgroundColor: '#d97706' }}
+                                onClick={() => {
+                                  handleSceneSpeedChange(activeSceneIndex, item.key);
+                                  addHistory(`Đặt tốc độ ${item.label} cho Cảnh ${activeSceneIndex + 1}`);
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          ))}
+                      </div>
                     </div>
                   </div>
                 )}
