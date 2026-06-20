@@ -6,6 +6,7 @@ import {
   useEdgesState,
   addEdge,
   ReactFlowProvider,
+  useReactFlow,
 } from '@xyflow/react';
 import type { Connection, Edge, Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -40,7 +41,14 @@ import {
   Save,
   Plus,
   GitBranch,
-  Columns
+  Columns,
+  LogOut,
+  Scissors,
+  Camera,
+  Mic,
+  Bookmark,
+  Gauge,
+  FolderOpen
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -159,6 +167,11 @@ interface Project {
 }
 
 function WorkflowBuilder() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const [showAiSuggestionModal, setShowAiSuggestionModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [renderEngine, setRenderEngine] = useState('Shotcut MLT Engine');
+  const [meltPath, setMeltPath] = useState('C:\\Program Files\\Shotcut\\melt.exe');
   const [language, setLanguage] = useState<'vi' | 'en'>('vi');
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = localStorage.getItem('hml_projects');
@@ -1283,6 +1296,32 @@ function WorkflowBuilder() {
     };
     addLog(`Đã đặt tốc độ phát ${speedNameMap[speedVal] || speedVal} cho Cảnh ${idx + 1}`, 'success');
   };
+
+  const exportToMlt = useCallback(() => {
+    let xml = `<?xml version="1.0" standalone="no"?>\n<mlt producer="main_bin" title="SynthoFlow Project" version="7.13.0">\n  <profile description="HD 1080p 25fps" frame_rate_den="1" frame_rate_num="25" width="1920" height="1080" progressive="1" sample_aspect_num="1" sample_aspect_den="1" display_aspect_num="16" display_aspect_den="9"/>\n  <playlist id="main_bin">\n`;
+    
+    scenes.forEach((scene) => {
+      xml += `    <producer id="producer_${scene.id}" in="0" out="${Math.round(scene.duration * 25)}">\n      <property name="resource">${scene.image}</property>\n      <property name="caption">${scene.title}</property>\n      <property name="subtitle">${scene.text}</property>\n      <property name="fx">${scene.fx || 'none'}</property>\n      <property name="transition">${scene.transition || 'none'}</property>\n      <property name="bgFx">${scene.bgFx || 'none'}</property>\n      <property name="speed">${scene.speed || 'normal'}</property>\n    </producer>\n`;
+    });
+    
+    xml += `  </playlist>\n  <tractor id="pipeline" global_feed="1">\n    <multitrack>\n      <playlist id="track0">\n`;
+    
+    scenes.forEach((scene) => {
+      xml += `        <entry producer="producer_${scene.id}" in="0" out="${Math.round(scene.duration * 25)}"/>\n`;
+    });
+    
+    xml += `      </playlist>\n    </multitrack>\n  </tractor>\n</mlt>`;
+    
+    const blob = new Blob([xml], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projects.find(p => p.id === activeProjectId)?.name || 'project'}.mlt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addLog("Đã xuất dự án Shotcut .mlt thành công!", "success");
+    addHistory("Đã xuất dự án Shotcut (.mlt)");
+  }, [scenes, projects, activeProjectId, addLog, addHistory]);
 
   // Generate AI suggestions logic
   const generateAiSuggestions = useCallback(() => {
@@ -3037,8 +3076,14 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               onPaneClick={onPaneClick}
               fitView
             >
-              <Background color="#ccc" gap={16} />
+              <Background variant="lines" color="var(--border-dark)" gap={15} size={0.5} />
             </ReactFlow>
+            {/* Custom Zoom Controls */}
+            <div style={{ position: 'absolute', bottom: '20px', left: '20px', zIndex: 10, display: 'flex', gap: '6px', background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(8px)', padding: '6px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <button className="btn" style={{ padding: '4px 8px', fontSize: '12px', minWidth: '28px', background: '#334155', border: 'none', color: '#fff', borderRadius: '4px' }} onClick={() => zoomIn()}>+</button>
+              <button className="btn" style={{ padding: '4px 8px', fontSize: '12px', minWidth: '28px', background: '#334155', border: 'none', color: '#fff', borderRadius: '4px' }} onClick={() => zoomOut()}>-</button>
+              <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--primary)', border: 'none', color: '#fff', borderRadius: '4px' }} onClick={() => fitView()}>Fit View</button>
+            </div>
           </div>
 
           {/* Right Sidebar - Inspector */}
@@ -4229,21 +4274,26 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                 {leftTab === 'playlist' && (
                   <div>
                     <div style={{ fontSize: '11px', color: '#8d8a98', marginBottom: '8px', padding: '0 4px' }}>Tài nguyên Dự án (Playlist Pool):</div>
-                    {importedFiles.map((file) => (
+                    {importedFiles.map((file, idx) => (
                       <div 
                         key={file.id} 
                         className="media-item" 
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', padding: '8px', background: '#25242d', borderRadius: '4px', marginBottom: '6px' }}
+                        style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: '#25242d', borderRadius: '8px', marginBottom: '8px', border: '1px solid #3d3b4f' }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                          {file.type === 'video' ? <Film size={14} style={{ color: '#eab308' }} /> : file.type === 'audio' ? <Volume2 size={14} style={{ color: '#a855f7' }} /> : <ImageIcon size={14} style={{ color: '#3b82f6' }} />}
-                          <div className="media-item-info" style={{ flex: 1, overflow: 'hidden' }}>
-                            <span className="media-item-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', color: '#e2e0e8', fontSize: '11px' }}>{file.name}</span>
-                            <span className="media-item-meta" style={{ fontSize: '9px' }}>{file.duration}s | {file.type.toUpperCase()}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+                          <div style={{ padding: '6px', background: '#1c1b22', borderRadius: '6px' }}>
+                            {file.type === 'video' ? <Film size={16} style={{ color: '#eab308' }} /> : file.type === 'audio' ? <Volume2 size={16} style={{ color: '#a855f7' }} /> : <ImageIcon size={16} style={{ color: '#3b82f6' }} />}
                           </div>
+                          <div className="media-item-info" style={{ flex: 1, overflow: 'hidden' }}>
+                            <span className="media-item-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', color: '#e2e0e8', fontSize: '12px', fontWeight: 600 }} title={file.name}>{file.name}</span>
+                            <span style={{ fontSize: '10px', color: '#8d8a98', display: 'block', marginTop: '2px' }}>Khoa định: Cảnh {idx + 1} : Sản phẩm</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #3d3b4f', paddingTop: '8px', marginTop: '4px' }}>
+                          <span className="media-item-meta" style={{ fontSize: '10px', color: '#8d8a98' }}>{file.duration || 5}s | {file.type.toUpperCase()}</span>
                           <button 
                             className="btn btn-primary" 
-                            style={{ padding: '2px 6px', fontSize: '10px', height: '22px', background: '#10b981', color: 'white', border: 'none' }}
+                            style={{ padding: '4px 10px', fontSize: '10.5px', height: '26px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 500 }}
                             onClick={() => {
                               const newSceneId = scenes.length + 1;
                               const newScene = {
@@ -4266,7 +4316,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                             }}
                             title="Thêm clip này vào dòng thời gian"
                           >
-                            + Thêm
+                            Thêm vào timeline
                           </button>
                         </div>
                       </div>
@@ -4632,6 +4682,66 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                       >
                         {isPlayingPreview ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: '2px' }} />}
                       </div>
+                      {showAiSuggestionModal && aiSuggestions && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '10px',
+                          left: '10px',
+                          right: '10px',
+                          bottom: '10px',
+                          background: 'rgba(21, 20, 31, 0.75)',
+                          backdropFilter: 'blur(16px)',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255, 255, 255, 0.18)',
+                          boxShadow: '0 8px 32px 0 rgba(124, 58, 237, 0.3)',
+                          padding: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          zIndex: 100,
+                          fontSize: '11px',
+                          color: '#fff'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px', marginBottom: '8px' }}>
+                            <span style={{ fontWeight: 'bold', color: '#a78bfa', fontSize: '10px', textTransform: 'uppercase' }}>✨ GỢI Ý tối ưu AI</span>
+                            <button onClick={() => setShowAiSuggestionModal(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>✕</button>
+                          </div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ color: '#8d8a98' }}>Chuyển cảnh:</span>
+                              <strong style={{ color: '#3b82f6', background: 'rgba(59, 130, 246, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>{aiSuggestions.transition.toUpperCase()} (Glitch)</strong>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ color: '#8d8a98' }}>Hiệu ứng nền:</span>
+                              <strong style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>{aiSuggestions.bgFx.toUpperCase()} (Starfield)</strong>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ color: '#8d8a98' }}>Tốc độ phát:</span>
+                              <strong style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>{aiSuggestions.speed.toUpperCase()} (Fast 1.5x)</strong>
+                            </div>
+                            <div style={{ fontSize: '9.5px', color: '#9ca3af', lineHeight: '1.3', fontStyle: 'italic', marginTop: '4px' }}>
+                              {aiSuggestions.reason}
+                            </div>
+                          </div>
+                          <button 
+                            onClick={applyAllAiSuggestions}
+                            style={{
+                              width: '100%',
+                              padding: '6px',
+                              background: 'linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              color: '#fff',
+                              fontWeight: 'bold',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              marginTop: '8px',
+                              boxShadow: '0 4px 12px rgba(168, 85, 247, 0.3)'
+                            }}
+                          >
+                            Áp dụng gợi ý AI
+                          </button>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div style={{ color: '#8d8a98', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
@@ -4658,15 +4768,60 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     Reset
                   </button>
                   
-                  {/* Detailed Player Scrubber Buttons */}
-                  <div className="player-transport-controls" style={{ display: 'flex', gap: '4px' }}>
-                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => setCurrentTime(prev => Math.max(0, prev - 2))} title="Tua lại 2s">◀◀</button>
-                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => setIsPlayingPreview(!isPlayingPreview)} title={isPlayingPreview ? "Tạm dừng" : "Phát"}>
-                      {isPlayingPreview ? '⏸' : '▶'}
+                  {/* Detailed Player Scrubber & Buttons */}
+                  <div className="video-player-scrubber-container" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0 6px 0' }}>
+                    <span style={{ fontSize: '10px', color: '#8d8a98', fontFamily: 'monospace' }}>{currentTime.toFixed(1)}s</span>
+                    <input 
+                      type="range" 
+                      min={0} 
+                      max={totalDuration} 
+                      step={0.1}
+                      value={currentTime} 
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setCurrentTime(val);
+                      }}
+                      className="video-player-scrubber"
+                      style={{
+                        flex: 1,
+                        WebkitAppearance: 'none',
+                        height: '6px',
+                        borderRadius: '3px',
+                        background: 'linear-gradient(90deg, #a855f7 0%, #6366f1 100%)',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span style={{ fontSize: '10px', color: '#8d8a98', fontFamily: 'monospace' }}>{totalDuration.toFixed(1)}s</span>
+                  </div>
+
+                  <div className="player-transport-controls" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f', borderRadius: '4px' }} onClick={() => setCurrentTime(prev => Math.max(0, prev - 2))} title="Tua lại 2s">◀◀</button>
+                    
+                    <button 
+                      className="btn" 
+                      style={{ 
+                        width: '38px', 
+                        height: '38px', 
+                        borderRadius: '50%', 
+                        backgroundColor: '#10b981', 
+                        color: '#fff', 
+                        border: 'none', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        boxShadow: '0 0 10px rgba(16, 185, 129, 0.4)',
+                        cursor: 'pointer'
+                      }} 
+                      onClick={() => setIsPlayingPreview(!isPlayingPreview)} 
+                      title={isPlayingPreview ? "Tạm dừng" : "Phát"}
+                    >
+                      {isPlayingPreview ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" style={{ marginLeft: '2px' }} />}
                     </button>
-                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => setCurrentTime(prev => Math.min(totalDuration, prev + 2))} title="Tua đi 2s">▶▶</button>
-                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: isLooping ? '#3b82f6' : '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => { setIsLooping(!isLooping); addHistory(`Đã ${!isLooping ? 'Bật' : 'Tắt'} chế độ lặp phát`); }} title="Lặp lại (Loop)">🔁</button>
-                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f' }} onClick={() => { alert("Chế độ Toàn màn hình đã được kích hoạt!"); }} title="Toàn màn hình">📺</button>
+                    
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f', borderRadius: '4px' }} onClick={() => setCurrentTime(prev => Math.min(totalDuration, prev + 2))} title="Tua đi 2s">▶▶</button>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: isLooping ? '#3b82f6' : '#242331', color: '#fff', border: '1px solid #3d3b4f', borderRadius: '4px' }} onClick={() => { setIsLooping(!isLooping); addHistory(`Đã ${!isLooping ? 'Bật' : 'Tắt'} chế độ lặp phát`); }} title="Lặp lại (Loop)">🔁</button>
+                    <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '28px', backgroundColor: '#242331', color: '#fff', border: '1px solid #3d3b4f', borderRadius: '4px' }} onClick={() => { alert("Chế độ Toàn màn hình đã được kích hoạt!"); }} title="Toàn màn hình">📺</button>
                   </div>
 
                   <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#a3a1b3' }}>
@@ -4734,16 +4889,96 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                       />
                     </div>
                     <div className="form-group" style={{ gap: '3px', margin: 0 }}>
-                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Thời lượng (s):</label>
-                      <input 
-                        type="number" 
-                        value={scenes[activeSceneIndex].duration} 
-                        onChange={(e) => {
-                          const val = Math.max(1, Number(e.target.value));
-                          setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
-                        }}
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Thời lượng: <strong style={{ color: 'var(--primary)' }}>{scenes[activeSceneIndex].duration}s</strong></label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input 
+                          type="range" 
+                          min={1} 
+                          max={30} 
+                          value={scenes[activeSceneIndex].duration} 
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
+                          }}
+                          style={{ flex: 1, cursor: 'pointer' }}
+                        />
+                        <input 
+                          type="number" 
+                          value={scenes[activeSceneIndex].duration} 
+                          onChange={(e) => {
+                            const val = Math.max(1, Number(e.target.value));
+                            setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
+                          }}
+                          style={{ width: '48px', background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '2px 4px', borderRadius: '4px', fontSize: '11px', textAlign: 'center', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ gap: '3px', margin: 0 }}>
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Bộ lọc màu (Color FX):</label>
+                      <select 
+                        value={scenes[activeSceneIndex].fx || 'none'} 
+                        onChange={(e) => handleSceneFxChange(activeSceneIndex, e.target.value)}
                         style={{ background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', outline: 'none' }}
-                      />
+                      >
+                        <option value="none">Bỏ bộ lọc (None)</option>
+                        <option value="cinematic">Cinematic Glow</option>
+                        <option value="vintage">Vintage Sepia</option>
+                        <option value="noir">Noir Grayscale</option>
+                        <option value="glitch">Glitch Art</option>
+                        <option value="blur">Soft Blur</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ gap: '3px', margin: 0 }}>
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Chuyển cảnh (Transition):</label>
+                      <select 
+                        value={scenes[activeSceneIndex].transition || 'none'} 
+                        onChange={(e) => handleSceneTransitionChange(activeSceneIndex, e.target.value)}
+                        style={{ background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', outline: 'none' }}
+                      >
+                        <option value="none">Không chuyển cảnh</option>
+                        <option value="fade">Mờ dần (Fade)</option>
+                        <option value="dissolve">Hòa tan (Dissolve)</option>
+                        <option value="wipe">Quét cảnh (Wipe)</option>
+                        <option value="slide">Trượt cảnh (Slide)</option>
+                        <option value="zoom">Phóng to (Zoom)</option>
+                        <option value="spin">Xoay tròn (Spin)</option>
+                        <option value="glitch">Nhiễu sóng (Glitch)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ gap: '3px', margin: 0 }}>
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Hiệu ứng nền (Background FX):</label>
+                      <select 
+                        value={scenes[activeSceneIndex].bgFx || 'none'} 
+                        onChange={(e) => handleSceneBgFxChange(activeSceneIndex, e.target.value)}
+                        style={{ background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', outline: 'none' }}
+                      >
+                        <option value="none">Không hiệu ứng nền</option>
+                        <option value="particles">Hạt lấp lánh (Particles)</option>
+                        <option value="bokeh">Đèn Bokeh (Bokeh)</option>
+                        <option value="smoke">Sương mù khói (Smoke)</option>
+                        <option value="gradient">Màu chuyển động (Gradient)</option>
+                        <option value="grid">Lưới Retro (Grid)</option>
+                        <option value="starfield">Vũ trụ sao (Starfield)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ gap: '3px', margin: 0 }}>
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Tốc độ phát (Speed):</label>
+                      <select 
+                        value={scenes[activeSceneIndex].speed || 'normal'} 
+                        onChange={(e) => handleSceneSpeedChange(activeSceneIndex, e.target.value)}
+                        style={{ background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', outline: 'none' }}
+                      >
+                        <option value="normal">Bình thường (1.0x)</option>
+                        <option value="slow_05">Chậm (Slow 0.5x)</option>
+                        <option value="slow_025">Cực chậm (Slow 0.25x)</option>
+                        <option value="fast_15">Nhanh (Fast 1.5x)</option>
+                        <option value="fast_20">Siêu nhanh (Fast 2.0x)</option>
+                        <option value="timelapse">Time Lapse (Timelapse)</option>
+                      </select>
                     </div>
                     
                     <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
@@ -4764,6 +4999,16 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                         }}
                       >
                         <Trash2 size={11} /> Xóa Clip
+                      </button>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <button 
+                        className="btn" 
+                        style={{ flex: 1, backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '6px 8px', fontSize: '11.5px', fontWeight: 'bold', justifyContent: 'center', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        onClick={exportToMlt}
+                      >
+                        <Download size={12} /> Xuất Dự Án (.mlt)
                       </button>
                     </div>
                   </div>
@@ -4810,48 +5055,72 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             </div>
 
             {workflowCompleted && (
-              <div className="kdenlive-timeline-toolbar">
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <button 
-                    className={`snap-toggle-btn ${activeNleTool === 'select' ? 'active' : ''}`} 
-                    onClick={() => { setActiveNleTool('select'); addLog("Đã chọn Công cụ Chọn (S)", "info"); }}
-                    style={{ fontSize: '10px', padding: '2px 6px' }} 
-                    title="Công cụ chọn (S)"
-                  >
-                    S
+              <div className="kdenlive-timeline-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #3d3b4f', padding: '6px 12px', background: '#1c1b22' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <label style={{ cursor: 'pointer', padding: '4px', color: '#a3a1b3', display: 'inline-flex', alignItems: 'center' }} title="Mở tệp">
+                    <FolderOpen size={16} />
+                    <input type="file" multiple accept="video/*,image/*,audio/*" style={{ display: 'none' }} onChange={handleNleOpenFile} />
+                  </label>
+                  <button className="snap-toggle-btn" onClick={() => addLog("Kích hoạt Camera ghi hình...", "info")} style={{ padding: '4px', background: 'transparent', border: 'none', color: '#a3a1b3' }} title="Quét/Camera">
+                    <Camera size={16} />
                   </button>
+                  <label style={{ cursor: 'pointer', padding: '4px', color: '#a3a1b3', display: 'inline-flex', alignItems: 'center' }} title="Tải lên">
+                    <Upload size={16} />
+                    <input type="file" multiple accept="video/*,image/*,audio/*" style={{ display: 'none' }} onChange={handleNleOpenFile} />
+                  </label>
+                  <div style={{ width: '1px', height: '14px', backgroundColor: '#3d3b4f', margin: '0 2px' }} />
                   <button 
                     className={`snap-toggle-btn ${activeNleTool === 'razor' ? 'active' : ''}`} 
                     onClick={() => { setActiveNleTool('razor'); addLog("Đã chọn Công cụ Cắt Razor (R) - Click vào clip trên dòng thời gian để cắt", "info"); }}
-                    style={{ fontSize: '10px', padding: '2px 6px' }} 
+                    style={{ padding: '4px', background: activeNleTool === 'razor' ? '#3d3b4f' : 'transparent', border: 'none', color: activeNleTool === 'razor' ? '#10b981' : '#a3a1b3' }} 
                     title="Công cụ cắt Razor (R)"
                   >
-                    R
+                    <Scissors size={16} />
                   </button>
-                  <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} onClick={() => addLog("Tính năng dãn cách (M) sẽ được bổ sung sau", "warning")} title="Công cụ dãn cách (M)">M</button>
-                  <div style={{ width: '1px', height: '16px', backgroundColor: '#3d3b4f', margin: '0 4px' }} />
-                  
-                  {/* Snap Toggle */}
-                  <button 
-                    className={`snap-toggle-btn ${isSnapEnabled ? 'active' : ''}`}
-                    onClick={() => {
-                      setIsSnapEnabled(!isSnapEnabled);
-                      addLog(`Đã ${!isSnapEnabled ? 'Bật' : 'Tắt'} chế độ Bám dính (Snap-to-Grid).`, 'info');
-                    }}
-                  >
-                    <Zap size={10} />
-                    Bám dính (Snap)
+                  <button className="snap-toggle-btn" onClick={() => addLog("Tính năng thay đổi tốc độ nâng cao sẽ được bổ sung sau", "warning")} style={{ padding: '4px', background: 'transparent', border: 'none', color: '#a3a1b3' }} title="Tốc độ">
+                    <Gauge size={16} />
                   </button>
-
+                  <button className="snap-toggle-btn" onClick={() => addLog("Đã thêm Marker tại vị trí hiện tại", "success")} style={{ padding: '4px', background: 'transparent', border: 'none', color: '#a3a1b3' }} title="Nhãn/Marker">
+                    <Bookmark size={16} />
+                  </button>
+                  <button className="snap-toggle-btn" onClick={() => addLog("Thêm text mới vào timeline", "info")} style={{ padding: '4px', background: 'transparent', border: 'none', color: '#a3a1b3' }} title="Chữ">
+                    <Type size={16} />
+                  </button>
+                  <button className="snap-toggle-btn" onClick={() => addLog("Mở bảng biên tập phụ đề nhanh", "info")} style={{ padding: '4px', background: 'transparent', border: 'none', color: '#a3a1b3' }} title="Phụ đề">
+                    <FileText size={16} />
+                  </button>
+                  <div style={{ width: '1px', height: '14px', backgroundColor: '#3d3b4f', margin: '0 2px' }} />
+                  <button className="snap-toggle-btn" onClick={() => { setIsSnapEnabled(!isSnapEnabled); addLog(`Đã ${!isSnapEnabled ? 'Bật' : 'Tắt'} bám dính.`, "info"); }} style={{ padding: '4px', background: 'transparent', border: 'none', color: isSnapEnabled ? '#3b82f6' : '#a3a1b3' }} title="Bám dính Grid">
+                    <Zap size={16} />
+                  </button>
+                  <button className="snap-toggle-btn" onClick={() => addLog("Đang kết nối Micro để thu âm...", "info")} style={{ padding: '4px', background: 'transparent', border: 'none', color: '#a3a1b3' }} title="Thu âm lồng tiếng">
+                    <Mic size={16} />
+                  </button>
                   <button 
                     className="snap-toggle-btn" 
                     onClick={() => {
-                      addLog("Giả lập thêm luồng Video/Audio mới thành công.", "success");
-                      addHistory("Đã thêm một track dựng video mới");
+                      if (scenes.length <= 1) {
+                        alert("Không thể xóa cảnh cuối cùng!");
+                        return;
+                      }
+                      const title = scenes[activeSceneIndex].title;
+                      setScenes(prev => prev.filter((_, i) => i !== activeSceneIndex));
+                      setSceneCount(prev => Math.max(1, prev - 1));
+                      setActiveSceneIndex(prev => Math.max(0, prev - 1));
+                      addLog(`Đã xóa clip: "${title}"`, 'warning');
                     }}
-                    style={{ fontSize: '10px' }}
+                    style={{ padding: '4px', background: 'transparent', border: 'none', color: '#ef4444' }} 
+                    title="Xóa phân cảnh đang chọn (Delete)"
                   >
-                    + Thêm Track
+                    <Trash2 size={16} />
+                  </button>
+                  <button 
+                    className="snap-toggle-btn" 
+                    onClick={() => setShowSettingsModal(true)}
+                    style={{ padding: '4px', background: 'transparent', border: 'none', color: 'var(--primary)' }} 
+                    title="Cài Đặt Trình Dựng Phim"
+                  >
+                    <Settings size={16} />
                   </button>
                 </div>
 
@@ -5843,6 +6112,115 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           </div>
         </div>
       )}
+      {showSettingsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <div style={{
+            width: '450px',
+            background: '#1c1b22',
+            border: '1px solid #3d3b4f',
+            borderRadius: '12px',
+            color: '#e2e0e8',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #2e2d3b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={18} style={{ color: 'var(--primary)' }} /> Cấu Hình Cài Đặt Ứng Dụng
+              </h3>
+              <button onClick={() => setShowSettingsModal(false)} style={{ background: 'none', border: 'none', color: '#8d8a98', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+            </div>
+            
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#a3a1b3' }}>Chọn Render Engine:</label>
+                <select 
+                  value={renderEngine} 
+                  onChange={(e) => setRenderEngine(e.target.value)}
+                  style={{ background: '#13111c', border: '1px solid #3d3b4f', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '13px', outline: 'none' }}
+                >
+                  <option value="Shotcut MLT Engine">Shotcut MLT Engine (Khuyên Dùng)</option>
+                  <option value="FFmpeg">FFmpeg CLI Renderer</option>
+                  <option value="Remotion">Remotion WebGL Engine</option>
+                  <option value="Hybrid">Hybrid GPU Accelerate</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#a3a1b3' }}>Đường dẫn chạy melt.exe:</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text" 
+                    value={meltPath} 
+                    onChange={(e) => setMeltPath(e.target.value)}
+                    style={{ flex: 1, background: '#13111c', border: '1px solid #3d3b4f', borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                  />
+                  <button 
+                    className="btn" 
+                    onClick={() => {
+                      alert("Tính năng duyệt file cục bộ sẽ giả lập File dialog để chọn melt.exe!");
+                      setMeltPath("C:\\Program Files\\Shotcut\\melt.exe");
+                    }}
+                    style={{ fontSize: '12px', padding: '0 12px', height: '34px' }}
+                  >
+                    Duyệt...
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid #2e2d3b', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', color: '#8d8a98' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input type="checkbox" defaultChecked id="autoSaveCheck" style={{ cursor: 'pointer' }} />
+                  <label htmlFor="autoSaveCheck" style={{ cursor: 'pointer' }}>Tự động lưu dự án sau mỗi 5 phút</label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input type="checkbox" defaultChecked id="themeCheck" style={{ cursor: 'pointer' }} />
+                  <label htmlFor="themeCheck" style={{ cursor: 'pointer' }}>Đồng bộ giao diện theo White/Dark Mode</label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input type="checkbox" defaultChecked id="audioCheck" style={{ cursor: 'pointer' }} />
+                  <label htmlFor="audioCheck" style={{ cursor: 'pointer' }}>Tự động chuẩn hóa âm thanh (Audio Normalize)</label>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '16px 20px', borderTop: '1px solid #2e2d3b', background: '#13111c', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button 
+                className="btn" 
+                onClick={() => setShowSettingsModal(false)}
+                style={{ padding: '8px 16px', fontSize: '12px' }}
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  setShowSettingsModal(false);
+                  addLog("Đã lưu cấu hình cài đặt hệ thống mới!", "success");
+                  addHistory("Cập nhật cài đặt Render Engine");
+                }}
+                style={{ padding: '8px 16px', fontSize: '12px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '4px' }}
+              >
+                Lưu cài đặt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toastMessage && (
         <div className="toast-container">
           <div className="toast">
