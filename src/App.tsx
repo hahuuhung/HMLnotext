@@ -949,7 +949,17 @@ function WorkflowBuilder() {
     addLog(`Đã chuyển sang dự án: "${target.name}"`, 'success');
   };
 
+  // Sidebar Left Workflow state
+  const [activeWorkflowTab, setActiveWorkflowTab] = useState<'templates' | 'palette'>('templates');
+  const [isWorkflowLeftSidebarOpen, setIsWorkflowLeftSidebarOpen] = useState(true);
+
   // Shotcut Editor Mode States
+  const [activeNleTool, setActiveNleTool] = useState<'select' | 'razor'>('select');
+  const [importedFiles, setImportedFiles] = useState<Array<{ id: string; name: string; type: 'video' | 'audio' | 'image'; url: string; duration: number }>>([
+    { id: 'file-doc', name: 'kich_ban_goc.txt', type: 'audio', url: '', duration: 15 },
+    { id: 'file-tts', name: 'Giong_Doc_AI_TTS.mp3', type: 'audio', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', duration: 15 },
+    { id: 'file-1', name: 'Video_Thien_Nhien_1.mp4', type: 'video', url: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&q=80', duration: 5 },
+  ]);
   const [leftTab, setLeftTab] = useState<'playlist' | 'filters' | 'history'>('playlist');
   const [filterSearch, setFilterSearch] = useState('');
   const [peakL, setPeakL] = useState(0);
@@ -1635,6 +1645,26 @@ function WorkflowBuilder() {
     }
   };
 
+  const handleNleOpenFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const newFiles = Array.from(files).map((file, i) => {
+      const type: 'video' | 'audio' | 'image' = file.type.startsWith('video') ? 'video' : file.type.startsWith('audio') ? 'audio' : 'image';
+      return {
+        id: `file-${Date.now()}-${i}`,
+        name: file.name,
+        type,
+        url: URL.createObjectURL(file),
+        duration: 5
+      };
+    });
+    
+    setImportedFiles(prev => [...prev, ...newFiles]);
+    addLog(`Đã tải lên ${newFiles.length} tài nguyên vào Playlist`, 'success');
+    addHistory(`Đã tải lên ${newFiles.length} file tài nguyên mới`);
+  };
+
   // Update nodes dynamic configurations in real-time
   useEffect(() => {
     setNodes((nds) =>
@@ -2211,6 +2241,36 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
     addHistory(`Tỉa Cảnh ${idx + 1} thành ${newDur} giây`);
   };
 
+  const handleBlockClick = (scene: any, idx: number, startOffset: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveSceneIndex(idx);
+    
+    if (activeNleTool === 'razor') {
+      const splitTime = currentTime - startOffset;
+      if (splitTime > 0.5 && splitTime < scene.duration - 0.5) {
+        const scene1 = { ...scene, duration: Number(splitTime.toFixed(1)) };
+        const scene2 = { 
+          ...scene, 
+          id: Date.now(), 
+          title: `${scene.title} (Cắt)`,
+          duration: Number((scene.duration - splitTime).toFixed(1)) 
+        };
+        setScenes(prev => {
+          const next = [...prev];
+          next.splice(idx, 1, scene1, scene2);
+          return next;
+        });
+        setSceneCount(prev => prev + 1);
+        addLog(`Đã cắt cảnh "${scene.title}" tại vị trí ${currentTime.toFixed(1)}s`, 'success');
+        addHistory(`Đã cắt cảnh "${scene.title}" tại ${currentTime.toFixed(1)}s`);
+      } else {
+        addLog("Di chuyển vạch đỏ (Playhead) đến vị trí giữa clip cần cắt trước khi nhấp", "warning");
+      }
+    } else {
+      setCurrentTime(startOffset + 0.1);
+    }
+  };
+
   // Build Track Blocks dynamically
   const buildTrackBlocks = (trackType: 'visual' | 'audio' | 'subtitle' | 'fx') => {
     let currentOffset = 0;
@@ -2235,7 +2295,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             onDragStart={() => handleSceneDragStart(idx)}
             onDragOver={handleSceneDragOver}
             onDrop={() => handleSceneDrop(idx)}
-            onClick={() => setCurrentTime(startOffset + 0.1)}
+            onClick={(e) => handleBlockClick(scene, idx, startOffset, e)}
           >
             <img src={scene.image} alt={scene.title} />
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>{scene.title}</span>
@@ -2251,7 +2311,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             key={scene.id} 
             className={`track-block track-block-audio ${isActive ? 'active' : ''}`}
             style={{ ...blockStyle, opacity: trackMutes.audio ? 0.35 : 1 }}
-            onClick={() => setCurrentTime(startOffset + 0.1)}
+            onClick={(e) => handleBlockClick(scene, idx, startOffset, e)}
           >
             <Volume2 size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px', display: 'flex', alignItems: 'center' }}>
@@ -2280,7 +2340,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             key={scene.id} 
             className={`track-block track-block-subtitle ${isActive ? 'active' : ''}`}
             style={blockStyle}
-            onClick={() => setCurrentTime(startOffset + 0.1)}
+            onClick={(e) => handleBlockClick(scene, idx, startOffset, e)}
           >
             <Type size={12} style={{ marginRight: '6px', minWidth: '12px' }} />
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>{scene.text}</span>
@@ -2313,7 +2373,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               background: hasFx ? undefined : '#2e2d3b', 
               borderStyle: hasFx ? 'solid' : 'dashed'
             }}
-            onClick={() => setCurrentTime(startOffset + 0.1)}
+            onClick={(e) => handleBlockClick(scene, idx, startOffset, e)}
           >
             <Zap size={12} style={{ marginRight: '6px', minWidth: '12px', color: hasFx ? '#f472b6' : 'inherit' }} />
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '32px' }}>
@@ -2511,15 +2571,45 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
         <div className="workspace-container">
           {/* Slim Sidebar Menu */}
           <div className="slim-sidebar">
-            <div className="slim-icon active" title="Mẫu Thiết Kế"><Grid size={20} /></div>
+            <div 
+              className={`slim-icon ${isWorkflowLeftSidebarOpen && activeWorkflowTab === 'templates' ? 'active' : ''}`} 
+              title="Mẫu & Cấu hình"
+              onClick={() => {
+                if (activeWorkflowTab === 'templates') {
+                  setIsWorkflowLeftSidebarOpen(!isWorkflowLeftSidebarOpen);
+                } else {
+                  setActiveWorkflowTab('templates');
+                  setIsWorkflowLeftSidebarOpen(true);
+                }
+              }}
+            >
+              <Grid size={20} />
+            </div>
+            <div 
+              className={`slim-icon ${isWorkflowLeftSidebarOpen && activeWorkflowTab === 'palette' ? 'active' : ''}`} 
+              title="Nút Quy trình (Nodes Palette)"
+              onClick={() => {
+                if (activeWorkflowTab === 'palette') {
+                  setIsWorkflowLeftSidebarOpen(!isWorkflowLeftSidebarOpen);
+                } else {
+                  setActiveWorkflowTab('palette');
+                  setIsWorkflowLeftSidebarOpen(true);
+                }
+              }}
+            >
+              <Cpu size={20} />
+            </div>
             <div className="slim-icon" title="Thư viện Media"><Layers size={20} /></div>
             <div className="slim-icon" style={{ marginTop: 'auto' }}><HelpCircle size={20} /></div>
           </div>
           
-          <div className="sidebar-left" style={{ width: `${leftSidebarWidth}px`, order: isSidebarSwapped ? 6 : 2 }}>
-            <div className="sidebar-header">
-              Mẫu Video Nhanh (Templates)
-            </div>
+          {isWorkflowLeftSidebarOpen && (
+            <div className="sidebar-left" style={{ width: `${leftSidebarWidth}px`, order: isSidebarSwapped ? 6 : 2 }}>
+              {activeWorkflowTab === 'templates' ? (
+                <>
+                  <div className="sidebar-header">
+                    Mẫu Video Nhanh (Templates)
+                  </div>
             <div style={{ padding: '8px 16px 4px 16px', display: 'flex', gap: '8px', flexDirection: 'column' }}>
               <button 
                 className={`btn ${activeTemplate === 'prompt' ? 'btn-primary' : ''}`} 
@@ -2704,7 +2794,10 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                 {isRunning ? 'Đang chạy...' : 'Chạy Nhanh (Quick Run)'}
               </button>
             </div>
-            <div className="sidebar-header" style={{ marginTop: '8px' }}>
+          </>
+        ) : (
+          <>
+            <div className="sidebar-header">
               Nút Quy trình
             </div>
             <div className="sidebar-subtitle">
@@ -2814,17 +2907,22 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                 </div>
               </div>
             </div>
-          </div>
+          </>
+        )}
+      </div>
+    )}
 
-          <div 
-            className="sidebar-resizer" 
-            onMouseDown={startResizingLeft}
-            style={{
-              order: isSidebarSwapped ? 5 : 3,
-              borderLeft: isSidebarSwapped ? 'none' : '1px solid var(--border-dark)',
-              borderRight: isSidebarSwapped ? '1px solid var(--border-dark)' : 'none',
-            }}
-          />
+          {isWorkflowLeftSidebarOpen && (
+            <div 
+              className="sidebar-resizer" 
+              onMouseDown={startResizingLeft}
+              style={{
+                order: isSidebarSwapped ? 5 : 3,
+                borderLeft: isSidebarSwapped ? 'none' : '1px solid var(--border-dark)',
+                borderRight: isSidebarSwapped ? '1px solid var(--border-dark)' : 'none',
+              }}
+            />
+          )}
 
           {/* Center Canvas */}
           <div 
@@ -4082,7 +4180,10 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
 
           {/* Top Toolbar */}
           <div className="shotcut-toolbar" style={{ display: 'flex', gap: '8px', background: '#1c1b22', borderBottom: '1px solid #2d2b38', padding: '6px 16px', alignItems: 'center' }}>
-            <button className="shotcut-toolbar-btn" onClick={() => addLog("Mở tệp tin nguồn video...", "info")} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><Upload size={13} /> Mở Tệp</button>
+            <label className="shotcut-toolbar-btn" style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>
+              <Upload size={13} /> Mở Tệp
+              <input type="file" multiple accept="video/*,image/*,audio/*" style={{ display: 'none' }} onChange={handleNleOpenFile} />
+            </label>
             <button className="shotcut-toolbar-btn" onClick={saveWorkflowManual} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><Save size={13} /> Lưu</button>
             <button className="shotcut-toolbar-btn" onClick={handleUndo} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><RotateCcw size={13} /> Undo</button>
             <button className="shotcut-toolbar-btn" onClick={() => addLog("Tính năng Redo sẽ khả dụng ở bản cập nhật tới", "warning")} style={{ background: 'transparent', border: '1px solid #3d3b4f', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}><RotateCcw size={13} style={{ transform: 'scaleX(-1)' }} /> Redo</button>
@@ -4127,36 +4228,46 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               <div className="kdenlive-panel-content" style={{ flex: 1, padding: '12px', overflowY: 'auto' }}>
                 {leftTab === 'playlist' && (
                   <div>
-                    <div className="media-item">
-                      <FileText size={14} style={{ color: '#10b981' }} />
-                      <div className="media-item-info">
-                        <span className="media-item-title">{docValue}</span>
-                        <span className="media-item-meta">Tài liệu kịch bản gốc</span>
-                      </div>
-                    </div>
-                    <div className="media-item">
-                      <Globe size={14} style={{ color: '#3b82f6' }} />
-                      <div className="media-item-info">
-                        <span className="media-item-title">{urlValue}</span>
-                        <span className="media-item-meta">Trang quét nội dung</span>
-                      </div>
-                    </div>
-                    <div className="media-item">
-                      <Volume2 size={14} style={{ color: '#8b5cf6' }} />
-                      <div className="media-item-info">
-                        <span className="media-item-title">Giong_Doc_AI_TTS.mp3</span>
-                        <span className="media-item-meta">Thuyết minh lồng tiếng</span>
-                      </div>
-                    </div>
-                    {scenes.slice(0, sceneCount).map((scene, idx) => (
-                      <div key={scene.id} className="media-item" onClick={() => {
-                        setCurrentTime(idx * 4 + 0.1);
-                        addHistory(`Xem trước Cảnh ${idx + 1}`);
-                      }}>
-                        <ImageIcon size={14} style={{ color: '#f59e0b' }} />
-                        <div className="media-item-info">
-                          <span className="media-item-title">Video_Clip_Phan_Canh_${idx + 1}.mp4</span>
-                          <span className="media-item-meta">{scene.duration}s | 1080p</span>
+                    <div style={{ fontSize: '11px', color: '#8d8a98', marginBottom: '8px', padding: '0 4px' }}>Tài nguyên Dự án (Playlist Pool):</div>
+                    {importedFiles.map((file) => (
+                      <div 
+                        key={file.id} 
+                        className="media-item" 
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', padding: '8px', background: '#25242d', borderRadius: '4px', marginBottom: '6px' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                          {file.type === 'video' ? <Film size={14} style={{ color: '#eab308' }} /> : file.type === 'audio' ? <Volume2 size={14} style={{ color: '#a855f7' }} /> : <ImageIcon size={14} style={{ color: '#3b82f6' }} />}
+                          <div className="media-item-info" style={{ flex: 1, overflow: 'hidden' }}>
+                            <span className="media-item-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', color: '#e2e0e8', fontSize: '11px' }}>{file.name}</span>
+                            <span className="media-item-meta" style={{ fontSize: '9px' }}>{file.duration}s | {file.type.toUpperCase()}</span>
+                          </div>
+                          <button 
+                            className="btn btn-primary" 
+                            style={{ padding: '2px 6px', fontSize: '10px', height: '22px', background: '#10b981', color: 'white', border: 'none' }}
+                            onClick={() => {
+                              const newSceneId = scenes.length + 1;
+                              const newScene = {
+                                id: newSceneId,
+                                title: `Cảnh ${newSceneId}: ${file.name.split('.')[0]}`,
+                                image: file.type === 'image' || file.type === 'video' ? file.url : 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&q=80',
+                                text: `Nội dung thuyết minh cho ${file.name}`,
+                                duration: file.duration || 5,
+                                fx: 'none',
+                                transition: 'none',
+                                bgFx: 'none',
+                                speed: 'normal',
+                                audioUrl: file.type === 'audio' ? file.url : undefined
+                              };
+                              setScenes(prev => [...prev, newScene]);
+                              setSceneCount(prev => prev + 1);
+                              setWorkflowCompleted(true);
+                              addLog(`Đã thêm clip "${file.name}" vào Timeline`, 'success');
+                              addHistory(`Thêm clip "${file.name}" vào timeline`);
+                            }}
+                            title="Thêm clip này vào dòng thời gian"
+                          >
+                            + Thêm
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -4594,15 +4705,71 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               {/* Jobs & Properties Stack */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                 <div className="kdenlive-panel-header" style={{ borderBottom: '1px solid #2e2d3b', padding: '8px 12px', fontSize: '11px', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <Sliders size={12} /> Properties (Thuộc tính)
+                  <Sliders size={12} /> Properties (Cảnh {activeSceneIndex + 1})
                 </div>
-                <div style={{ padding: '10px 12px', fontSize: '11px', color: '#a3a1b3', borderBottom: '1px solid #2e2d3b', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div><strong>Độ phân giải:</strong> 1080 x 1920 (FHD)</div>
-                  <div><strong>Tỉ lệ khung hình:</strong> {aspectRatio}</div>
-                  <div><strong>FPS:</strong> 25.00 fps</div>
-                  <div><strong>Codec Video:</strong> {renderConfig.videoCodec}</div>
-                  <div><strong>Codec Audio:</strong> AAC Stereo</div>
-                </div>
+                {scenes[activeSceneIndex] ? (
+                  <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid #2e2d3b', fontSize: '11px' }}>
+                    <div className="form-group" style={{ gap: '3px', margin: 0 }}>
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Tiêu đề Clip:</label>
+                      <input 
+                        type="text" 
+                        value={scenes[activeSceneIndex].title} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, title: val } : s));
+                        }}
+                        style={{ background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', outline: 'none' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ gap: '3px', margin: 0 }}>
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Phụ đề / Lời bình:</label>
+                      <textarea 
+                        value={scenes[activeSceneIndex].text} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, text: val } : s));
+                        }}
+                        rows={2}
+                        style={{ background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', resize: 'vertical', outline: 'none' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ gap: '3px', margin: 0 }}>
+                      <label style={{ fontWeight: 600, color: '#a3a1b3' }}>Thời lượng (s):</label>
+                      <input 
+                        type="number" 
+                        value={scenes[activeSceneIndex].duration} 
+                        onChange={(e) => {
+                          const val = Math.max(1, Number(e.target.value));
+                          setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, duration: val } : s));
+                        }}
+                        style={{ background: '#13111c', border: '1px solid #3d3b4f', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', outline: 'none' }}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <button 
+                        className="btn" 
+                        style={{ flex: 1, backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', fontSize: '11px', justifyContent: 'center', cursor: 'pointer', borderRadius: '4px' }}
+                        onClick={() => {
+                          if (scenes.length <= 1) {
+                            alert("Không thể xóa cảnh cuối cùng!");
+                            return;
+                          }
+                          const title = scenes[activeSceneIndex].title;
+                          setScenes(prev => prev.filter((_, i) => i !== activeSceneIndex));
+                          setSceneCount(prev => Math.max(1, prev - 1));
+                          setActiveSceneIndex(prev => Math.max(0, prev - 1));
+                          addLog(`Đã xóa clip: "${title}"`, 'warning');
+                          addHistory(`Đã xóa clip: "${title}"`);
+                        }}
+                      >
+                        <Trash2 size={11} /> Xóa Clip
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px', fontSize: '11px', color: '#8d8a98' }}>Hãy chọn một phân cảnh trên dòng thời gian.</div>
+                )}
 
                 <div className="kdenlive-panel-header" style={{ borderBottom: '1px solid #2e2d3b', padding: '8px 12px', fontSize: '11px', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <Sliders size={12} /> Hàng đợi Export Jobs
@@ -4645,9 +4812,23 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             {workflowCompleted && (
               <div className="kdenlive-timeline-toolbar">
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <button className="snap-toggle-btn active" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ chọn (S)">S</button>
-                  <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ cắt Razor (R)">R</button>
-                  <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} title="Công cụ dãn cách (M)">M</button>
+                  <button 
+                    className={`snap-toggle-btn ${activeNleTool === 'select' ? 'active' : ''}`} 
+                    onClick={() => { setActiveNleTool('select'); addLog("Đã chọn Công cụ Chọn (S)", "info"); }}
+                    style={{ fontSize: '10px', padding: '2px 6px' }} 
+                    title="Công cụ chọn (S)"
+                  >
+                    S
+                  </button>
+                  <button 
+                    className={`snap-toggle-btn ${activeNleTool === 'razor' ? 'active' : ''}`} 
+                    onClick={() => { setActiveNleTool('razor'); addLog("Đã chọn Công cụ Cắt Razor (R) - Click vào clip trên dòng thời gian để cắt", "info"); }}
+                    style={{ fontSize: '10px', padding: '2px 6px' }} 
+                    title="Công cụ cắt Razor (R)"
+                  >
+                    R
+                  </button>
+                  <button className="snap-toggle-btn" style={{ fontSize: '10px', padding: '2px 6px' }} onClick={() => addLog("Tính năng dãn cách (M) sẽ được bổ sung sau", "warning")} title="Công cụ dãn cách (M)">M</button>
                   <div style={{ width: '1px', height: '16px', backgroundColor: '#3d3b4f', margin: '0 4px' }} />
                   
                   {/* Snap Toggle */}
