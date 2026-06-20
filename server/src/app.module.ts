@@ -16,8 +16,20 @@ import { SentryExceptionFilter } from './common/filters/sentry-exception.filter'
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { HealthModule } from './health/health.module';
 
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { WatchModule } from './watch/watch.module';
+
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'outputs'),
+      serveRoot: '/outputs',
+    }),
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 100, // 100 requests per minute
@@ -31,7 +43,8 @@ import { HealthModule } from './health/health.module';
     NodeRegistryModule, 
     ProvidersModule, 
     RenderQueueModule,
-    HealthModule
+    HealthModule,
+    WatchModule
   ],
   controllers: [AppController],
   providers: [

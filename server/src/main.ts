@@ -30,6 +30,8 @@ async function bootstrap() {
     }),
   });
 
+  app.enableCors();
+
   const config = new DocumentBuilder()
     .setTitle('ViệtFlow Backend API')
     .setDescription('The core API for ViệtFlow automation system')

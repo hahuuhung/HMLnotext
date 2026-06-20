@@ -4,6 +4,23 @@
   "version": "0.0.0",
   "type": "module",
   "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.vietflow.desktop",
+    "productName": "VietFlow Studio",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "server/dist/**/*",
+      "server/package.json",
+      "server/node_modules/**/*",
+      "server/outputs/**/*",
+      "server/uploads/**/*",
+      "server/prisma/**/*"
+    ]
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -11,22 +28,27 @@
     "preview": "vite preview",
     "test": "vitest run",
     "electron:start": "electron .",
-    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:5173 && electron .\""
+    "electron:dev": "concurrently -k \"npm run dev\" \"npm run start:dev --prefix server\" \"wait-on http://localhost:5173 && wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "npm run build && npm run build --prefix server && electron-builder"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.0",
     "lucide-react": "^1.21.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "uuid": "^14.0.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^10.0.3",
     "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
