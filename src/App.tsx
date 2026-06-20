@@ -2836,115 +2836,105 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           </>
         ) : (
           <>
-            <div className="sidebar-header">
-              Nút Quy trình
-            </div>
-            <div className="sidebar-subtitle">
-              Nodes Palette
+            <div className="sidebar-header" style={{ padding: '16px 20px 8px 20px', borderBottom: 'none' }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#1e293b' }}>Nút Quy trình</div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Bảng điều khiển Nút</div>
             </div>
             
-            <div style={{ padding: '0 16px 12px 16px' }}>
-              <label className="btn-primary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', padding: '8px', borderRadius: '8px', fontSize: '13px' }}>
-                <Upload size={14} style={{ marginRight: '6px' }} /> Tải lên Tài nguyên
-                <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
-              </label>
+            <div style={{ padding: '0 20px 12px 20px' }}>
+              <input 
+                type="text" 
+                className="form-control" 
+                style={{ fontSize: '12px', padding: '8px 12px', width: '100%', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                value={nodeSearchQuery}
+                onChange={(e) => setNodeSearchQuery(e.target.value)}
+                placeholder="🔍 Tìm kiếm nút..."
+              />
             </div>
             
-            <div style={{ padding: '0 16px 12px 16px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Thư mục Local Watch</label>
-              <div style={{ display: 'flex', gap: '4px' }}>
+            <div style={{ padding: '0 20px 12px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <label className="btn-primary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', flex: 1, background: 'var(--primary)', color: 'white' }}>
+                  <Upload size={12} style={{ marginRight: '4px' }} /> Upload Media
+                  <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                 <input 
                   type="text" 
                   className="form-control" 
-                  style={{ fontSize: '11px', padding: '4px 8px', flex: 1 }} 
+                  style={{ fontSize: '11px', padding: '4px 8px', flex: 1, border: '1px solid #e2e8f0', borderRadius: '4px' }} 
                   value={watchPath}
                   onChange={(e) => setWatchPath(e.target.value)}
-                  placeholder="C:/Users/Admin/Assets"
+                  placeholder="Local Watch Folder..."
                 />
-                <button className="btn" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={handleUpdateWatchPath}>Lưu</button>
+                <button className="btn" style={{ padding: '4px 8px', fontSize: '11px', height: '26px' }} onClick={handleUpdateWatchPath}>Lưu</button>
               </div>
             </div>
             
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-              <div className="palette-category">
-                <Plus size={14} /> Lập lịch
-              </div>
-              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'trigger')}>
-                  <div className="node-icon-wrapper color-trigger"><Play size={14} fill="white" /></div>
-                  <div><div className="node-palette-name">Trigger</div><div className="node-palette-desc">Kích hoạt luồng</div></div>
-                </div>
-              </div>
-
-              <div className="palette-category">
-                <FileText size={14} /> Nhập liệu
-              </div>
-              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'docInput')}>
-                  <div className="node-icon-wrapper" style={{ backgroundColor: '#10b981' }}><FileText size={14} /></div>
-                  <div><div className="node-palette-name">Tài Liệu</div><div className="node-palette-desc">Nhận tệp văn bản</div></div>
-                </div>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'urlInput')}>
-                  <div className="node-icon-wrapper" style={{ backgroundColor: '#3b82f6' }}><Globe size={14} /></div>
-                  <div><div className="node-palette-name">Liên Kết Blog</div><div className="node-palette-desc">Nhập địa chỉ URL</div></div>
-                </div>
-              </div>
-
-              <div className="palette-category" style={{ backgroundColor: 'var(--bg-app)' }}>
-                <Cpu size={14} /> Xử lý
-              </div>
-              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'aiNode')}>
-                  <div className="node-icon-wrapper color-ai"><Cpu size={14} /></div>
-                  <div><div className="node-palette-name">AI Script</div><div className="node-palette-desc">Biên tập kịch bản</div></div>
-                </div>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'visualNode')}>
-                  <div className="node-icon-wrapper color-visual"><ImageIcon size={14} /></div>
-                  <div><div className="node-palette-name">Visual Node</div><div className="node-palette-desc">Sinh hình ảnh AI</div></div>
-                </div>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'audioTTS')}>
-                  <div className="node-icon-wrapper" style={{ backgroundColor: '#8b5cf6' }}><Volume2 size={14} /></div>
-                  <div><div className="node-palette-name">Lồng Tiếng AI</div><div className="node-palette-desc">TTS đa giọng đọc</div></div>
-                </div>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'subtitle')}>
-                  <div className="node-icon-wrapper color-subtitle"><Type size={14} /></div>
-                  <div><div className="node-palette-name">Phụ Đề</div><div className="node-palette-desc">Tạo text trên video</div></div>
-                </div>
-              </div>
-
-              <div className="palette-category">
-                <GitBranch size={14} /> Điều Hướng & Biểu Thức
-              </div>
-              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'logicNode')}>
-                  <div className="node-icon-wrapper" style={{ backgroundColor: 'var(--accent)' }}><GitBranch size={14} /></div>
-                  <div><div className="node-palette-name">Logic / If Else</div><div className="node-palette-desc">Rẽ nhánh luồng</div></div>
-                </div>
-              </div>
-
-              <div className="palette-category">
-                <Code size={14} /> Tiện ích
-              </div>
-              <div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'codeNode')}>
-                  <div className="node-icon-wrapper" style={{ backgroundColor: '#097969' }}><Code size={14} /></div>
-                  <div><div className="node-palette-name">Lập Trình Code</div><div className="node-palette-desc">Nhúng mã JS xử lý</div></div>
-                </div>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'customAINode')}>
-                  <div className="node-icon-wrapper" style={{ backgroundColor: '#df6330' }}><Cpu size={14} /></div>
-                  <div><div className="node-palette-name">Thẻ AI Prompt</div><div className="node-palette-desc">Nhúng AI prompt tùy chọn</div></div>
-                </div>
-              </div>
-
-              <div className="palette-category">
-                <Film size={14} /> Xuất bản
-              </div>
-              <div className="palette-category"><GitBranch size={14} /> �i?u Hu?ng</div><div className="node-list" style={{ paddingTop: '8px', paddingBottom: '12px' }}><div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'logicNode')}><div className="node-icon-wrapper" style={{ backgroundColor: 'var(--accent)' }}><GitBranch size={14} /></div><div><div className="node-palette-name">Logic Node</div><div className="node-palette-desc">R? nh�nh lu?ng</div></div></div></div><div className="palette-category"><Film size={14} /> Xu?t & Publish</div><div className="node-list" style={{ paddingTop: '8px', paddingBottom: '24px' }}>
-                <div className="node-palette-item" draggable onDragStart={(e) => onDragStart(e, 'renderNode')}>
-                  <div className="node-icon-wrapper color-render"><Film size={14} /></div>
-                  <div><div className="node-palette-name">Xuất Bản</div><div className="node-palette-desc">Xuất video MP4</div></div>
-                </div>
-              </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '0 20px 20px 20px', gap: '10px' }}>
+              {(() => {
+                const rawNodeTemplates = [
+                  { type: 'trigger', name: 'Kích hoạt', desc: 'Trigger / Schedule', color: '#334155', textLight: true, icon: <Play size={14} fill="white" /> },
+                  { type: 'aiNode', name: 'AI Script', desc: 'Gen Script', color: '#a855f7', textLight: true, icon: <Cpu size={14} color="white" /> },
+                  { type: 'audioTTS', name: 'TTS lồng tiếng', desc: 'TTS voiceover / Giọng: Phuong Anh', color: '#f97316', textLight: true, icon: <Volume2 size={14} color="white" /> },
+                  { type: 'renderNode', name: 'Xuất bản', desc: 'Publish YouTube', color: '#10b981', textLight: true, icon: <Check size={14} color="white" /> },
+                  { type: 'docInput', name: 'Tải lên video', desc: 'Upload file', color: '#ffffff', icon: <Upload size={14} style={{ color: 'var(--primary)' }} /> },
+                  { type: 'urlInput', name: 'Liên kết Blog', desc: 'Lấy tin tức từ Link', color: '#ffffff', icon: <Globe size={14} style={{ color: 'var(--success)' }} /> },
+                  { type: 'logicNode', name: 'Logic / If Else', desc: 'Rẽ nhánh luồng', color: '#ffffff', icon: <GitBranch size={14} style={{ color: 'var(--warning)' }} /> },
+                  { type: 'codeNode', name: 'Lập trình Code', desc: 'Nhúng mã JS xử lý', color: '#ffffff', icon: <Code size={14} style={{ color: '#097969' }} /> },
+                  { type: 'customAINode', name: 'Thẻ AI Prompt', desc: 'Nhúng AI prompt tùy chọn', color: '#ffffff', icon: <Cpu size={14} style={{ color: '#df6330' }} /> }
+                ];
+                
+                const filtered = rawNodeTemplates.filter(item => 
+                  item.name.toLowerCase().includes(nodeSearchQuery.toLowerCase()) || 
+                  item.desc.toLowerCase().includes(nodeSearchQuery.toLowerCase())
+                );
+                
+                return filtered.map((item, idx) => (
+                  <div 
+                    key={idx}
+                    className="node-palette-item" 
+                    draggable 
+                    onDragStart={(e) => onDragStart(e, item.type)}
+                    style={{
+                      background: item.color,
+                      color: item.textLight ? 'white' : '#334155',
+                      border: item.color === '#ffffff' ? '1px solid #e2e8f0' : 'none',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                      cursor: 'grab',
+                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                      flexShrink: 0,
+                      marginBottom: '8px'
+                    }}
+                  >
+                    <div 
+                      className="node-icon-wrapper" 
+                      style={{ 
+                        backgroundColor: item.textLight ? 'rgba(255,255,255,0.2)' : 'var(--primary-light)',
+                        borderRadius: '8px',
+                        width: '28px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
+                    >
+                      {item.icon}
+                    </div>
+                    <div>
+                      <div className="node-palette-name" style={{ fontWeight: 600, fontSize: '13px' }}>{item.name}</div>
+                      <div className="node-palette-desc" style={{ fontSize: '10.5px', opacity: 0.8 }}>{item.desc}</div>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </>
         )}

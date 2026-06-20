@@ -274,7 +274,8 @@ body {
   cursor: grab;
   transition: all 0.2s ease;
   user-select: none;
-  margin: 0 20px 8px 20px;
+  margin: 0 0 8px 0;
+  flex-shrink: 0;
 }
 
 .node-palette-item:hover {
