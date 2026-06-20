@@ -40,7 +40,8 @@ import {
   Save,
   Plus,
   GitBranch,
-  Send
+  Send,
+  Columns
 } from 'lucide-react';
 import { 
   TriggerNode, 
@@ -233,6 +234,51 @@ function WorkflowBuilder() {
     const [agentLogs, setAgentLogs] = useState<AgentMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [writerModel, setWriterModel] = useState('gpt-4o');
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(280);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
+  const [isSidebarSwapped, setIsSidebarSwapped] = useState(false);
+
+  const startResizingLeft = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    const startWidth = leftSidebarWidth;
+    const startX = mouseDownEvent.clientX;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const currentX = mouseMoveEvent.clientX;
+      const deltaX = currentX - startX;
+      const newWidth = isSidebarSwapped ? startWidth - deltaX : startWidth + deltaX;
+      setLeftSidebarWidth(Math.max(180, Math.min(500, newWidth)));
+    };
+
+    const stopDrag = () => {
+      window.removeEventListener('mousemove', doDrag);
+      window.removeEventListener('mouseup', stopDrag);
+    };
+
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('mouseup', stopDrag);
+  }, [leftSidebarWidth, isSidebarSwapped]);
+
+  const startResizingRight = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    const startWidth = rightSidebarWidth;
+    const startX = mouseDownEvent.clientX;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const currentX = mouseMoveEvent.clientX;
+      const deltaX = currentX - startX;
+      const newWidth = isSidebarSwapped ? startWidth + deltaX : startWidth - deltaX;
+      setRightSidebarWidth(Math.max(220, Math.min(600, newWidth)));
+    };
+
+    const stopDrag = () => {
+      window.removeEventListener('mousemove', doDrag);
+      window.removeEventListener('mouseup', stopDrag);
+    };
+
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('mouseup', stopDrag);
+  }, [rightSidebarWidth, isSidebarSwapped]);
   const [directorModel, setDirectorModel] = useState('gemini-1.5-pro');
   const [writerSystemPrompt, setWriterSystemPrompt] = useState('Bạn là Biên kịch AI chuyên nghiệp, chịu trách nhiệm phân tích bối cảnh và phân tách kịch bản phân cảnh phim ngắn.');
   const [directorSystemPrompt, setDirectorSystemPrompt] = useState('Bạn là Đạo diễn Visual AI, chịu trách nhiệm định hình phong cách hình ảnh và sinh prompt hình ảnh cho mỗi phân cảnh.');
@@ -1739,7 +1785,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             <div className="slim-icon" style={{ marginTop: 'auto' }}><HelpCircle size={20} /></div>
           </div>
           
-          <div className="sidebar-left">
+          <div className="sidebar-left" style={{ width: `${leftSidebarWidth}px`, order: isSidebarSwapped ? 6 : 2 }}>
             <div className="sidebar-header">
               Mẫu Video Nhanh (Templates)
             </div>
@@ -1864,7 +1910,7 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           {/* Center Canvas */}
           <div 
             className="canvas-wrapper"
-            style={{ borderRadius: '16px', margin: '8px 0', border: '1px solid var(--border-dark)', overflow: 'hidden' }}
+            style={{ borderRadius: '16px', margin: '8px 0', border: '1px solid var(--border-dark)', overflow: 'hidden', flex: 1, order: 4 }}
             onDragOver={onDragOver}
             onDrop={onDrop}
           >
@@ -1962,7 +2008,16 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
           </div>
 
           {/* Right Sidebar - Inspector */}
-          <div className="sidebar-right">
+                    <div 
+            className="sidebar-resizer" 
+            onMouseDown={startResizingRight}
+            style={{
+              order: isSidebarSwapped ? 3 : 5,
+              borderLeft: isSidebarSwapped ? '1px solid var(--border-dark)' : 'none',
+              borderRight: isSidebarSwapped ? 'none' : '1px solid var(--border-dark)',
+            }}
+          />
+          <div className="sidebar-right" style={{ width: `${rightSidebarWidth}px`, order: isSidebarSwapped ? 2 : 6 }}>
             <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Bảng điều khiển</span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
