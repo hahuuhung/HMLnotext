@@ -246,7 +246,19 @@ function WorkflowBuilder() {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [agentLogs, activeTab]);
-const [watchPath, setWatchPath] = useState('');
+
+  const addLog = useCallback((message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+    const time = new Date().toTimeString().split(' ')[0];
+    setLogs((prev) => [...prev, { time, type, message }]);
+  }, []);
+
+  const addAgentLog = useCallback((agent: 'Biên Kịch Agent' | 'Đạo Diễn Agent' | 'Biên Tập Agent' | 'Âm Thanh Agent', message: string, color: string) => {
+    const time = new Date().toTimeString().split(' ')[0];
+    setAgentLogs((prev) => [...prev, { time, agent, color, message }]);
+  }, []);
+
+  const [workflowCompleted, setWorkflowCompleted] = useState(initialProject.workflowCompleted);
+  const [watchPath, setWatchPath] = useState('');
   
   const [editorMode, setEditorMode] = useState<'workflow' | 'kdenlive'>('workflow');
 
@@ -2374,8 +2386,11 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
                     <div className="form-group">
                       <label className="form-label">Tỷ lệ video:</label>
                       <select className="form-select" value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                        <option value="9:16">Dọc (9:16) - TikTok/Reels</option>
-                        <option value="16:9">Ngang (16:9) - YouTube</option>
+                        <option value="16:9">Ngang (16:9) - YouTube Video / Facebook Watch</option>
+                        <option value="9:16">Dọc (9:16) - TikTok / YouTube Shorts / Facebook Reels</option>
+                        <option value="1:1">Vuông (1:1) - Facebook Feed / Instagram Post</option>
+                        <option value="4:5">Dọc Lửng (4:5) - Facebook Portrait Post</option>
+                        <option value="21:9">Điện Ảnh (21:9) - Cinema Movie / Facebook Cover</option>
                       </select>
                     </div>
                     <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '12px' }}>
@@ -2929,11 +2944,24 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
             </div>
 
             {/* Video Preview Screen */}
-            <div className="video-preview-wrapper" style={{ width: aspectRatio === '9:16' ? '220px' : '340px', transition: 'width 0.3s ease' }}>
+            <div className="video-preview-wrapper" style={{ 
+              width: aspectRatio === '9:16' ? '220px' : 
+                     aspectRatio === '1:1' ? '280px' : 
+                     aspectRatio === '4:5' ? '240px' : 
+                     aspectRatio === '21:9' ? '380px' : '340px', 
+              transition: 'width 0.3s ease' 
+            }}>
               <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>
                 Màn hình xem trước
               </span>
-              <div className="video-screen" style={{ aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '170px' }}>
+              <div className="video-screen" style={{ 
+                aspectRatio: aspectRatio === '9:16' ? '9/16' : 
+                             aspectRatio === '1:1' ? '1/1' : 
+                             aspectRatio === '4:5' ? '4/5' : 
+                             aspectRatio === '21:9' ? '21/9' : '16/9', 
+                maxHeight: 'none', 
+                height: '170px' 
+              }}>
                 {workflowCompleted ? (
                   <>
                     <img 
@@ -3115,7 +3143,19 @@ ${scenes.map(s => `[${s.title}] (${s.duration}s)\nLời bình: ${s.text}\nẢnh 
               
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 0 }}>
                 {/* Video screen */}
-                <div className="video-screen" style={{ width: aspectRatio === '9:16' ? '160px' : '280px', aspectRatio: aspectRatio === '9:16' ? '9/16' : '16/9', maxHeight: 'none', height: '220px', position: 'relative' }}>
+                <div className="video-screen" style={{ 
+                  width: aspectRatio === '9:16' ? '160px' : 
+                         aspectRatio === '1:1' ? '220px' : 
+                         aspectRatio === '4:5' ? '180px' : 
+                         aspectRatio === '21:9' ? '320px' : '280px', 
+                  aspectRatio: aspectRatio === '9:16' ? '9/16' : 
+                               aspectRatio === '1:1' ? '1/1' : 
+                               aspectRatio === '4:5' ? '4/5' : 
+                               aspectRatio === '21:9' ? '21/9' : '16/9', 
+                  maxHeight: 'none', 
+                  height: '220px', 
+                  position: 'relative' 
+                }}>
                   {workflowCompleted ? (
                     <>
                       <img 
